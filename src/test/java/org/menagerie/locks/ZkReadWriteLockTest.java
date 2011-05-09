@@ -37,6 +37,11 @@ public class ZkReadWriteLockTest extends MenagerieTest {
 
 
     @Override
+    protected String getTestPath() {
+        return "/test-readwrite-lock";
+    }
+
+    @Override
     protected void prepare() {
         //To change body of implemented methods use File | Settings | File Templates.
     }

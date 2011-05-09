@@ -40,6 +40,12 @@ public class ZkBlockingQueueBoundedSingleThread extends MenagerieTest {
     private BlockingQueue<String> testQueue;
     private static final String testElement = "Test element";
     private static final int maxQueueSize = 5;
+
+    @Override
+    protected String getTestPath() {
+        return "/test-queue-bounded-single-thread";
+    }
+
     @Override
     protected void prepare() {
         testQueue = new ZkBlockingQueue<String>(testPath,new JavaSerializer<String>(),zkSessionManager,maxQueueSize);

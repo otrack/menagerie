@@ -45,7 +45,12 @@ public class ZkBlockingQueueBoundedMultiThreadedTest extends MenagerieTest{
     public static void shutdownAll(){
         service.shutdownNow();
     }
-    
+
+    @Override
+    protected String getTestPath() {
+        return "/test-queue-bounded-multithread";
+    }
+
     @Override
     protected void prepare() {
         testQueue = new ZkBlockingQueue<String>(testPath,serializer,zkSessionManager,bound);

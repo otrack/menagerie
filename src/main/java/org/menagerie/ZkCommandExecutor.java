@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 public class ZkCommandExecutor {
     private static final Logger logger = Logger.getLogger(ZkCommandExecutor.class);
     private static final long DEFAULT_DELAY_MILLIS = 1000;
-    public static final int DEFAULT_MAX_RETRIES = 3;
+    public  static final int DEFAULT_MAX_RETRIES = 3;
 
     private final int maxRetries;
     private final long delayMillis;

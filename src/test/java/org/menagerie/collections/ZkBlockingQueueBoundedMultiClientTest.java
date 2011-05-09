@@ -51,6 +51,11 @@ public class ZkBlockingQueueBoundedMultiClientTest extends MenagerieTest{
     }
 
     @Override
+    protected String getTestPath() {
+        return "/test-queue-bounded-multi-client";
+    }
+
+    @Override
     protected void prepare() {
         testQueue = new ZkBlockingQueue<String>(testPath,serializer,zkSessionManager,bound);
     }
