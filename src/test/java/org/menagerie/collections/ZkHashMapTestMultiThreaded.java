@@ -41,6 +41,11 @@ public class ZkHashMapTestMultiThreaded extends MenagerieTest{
     private static ExecutorService service = Executors.newFixedThreadPool(2,new TestingThreadFactory());
 
     @Override
+    protected String getTestPath() {
+        return "/test-hashmap-multi-thread";
+    }
+
+    @Override
     protected void prepare() {
         serializer = new JavaEntrySerializer<String, String>();
         testMap = new ZkHashMap<String, String>(testPath,zkSessionManager,serializer);

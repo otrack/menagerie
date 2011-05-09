@@ -63,13 +63,11 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.6.1</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.6.1</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
     <properties>
@@ -86,34 +84,34 @@
                     <target>1.6</target>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>com.objectdriven.maven</groupId>
-                <artifactId>maven-zookeeper-plugin</artifactId>
-                <version>1.0-SNAPSHOT</version>
-                <configuration>
-                    <port>2181</port>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>launch-zookeeper</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>start</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>stop-zookeeper</id>
-                        <phase>post-integration-test</phase>
-                        <goals>
-                            <goal>stop</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
+            <!--<plugin>-->
+                <!--<groupId>com.objectdriven.maven</groupId>-->
+                <!--<artifactId>maven-zookeeper-plugin</artifactId>-->
+                <!--<version>1.0-SNAPSHOT</version>-->
+                <!--<configuration>-->
+                    <!--<port>2181</port>-->
+                <!--</configuration>-->
+                <!--<executions>-->
+                    <!--<execution>-->
+                        <!--<id>launch-zookeeper</id>-->
+                        <!--<phase>test</phase>-->
+                        <!--<goals>-->
+                            <!--<goal>start</goal>-->
+                        <!--</goals>-->
+                    <!--</execution>-->
+                    <!--<execution>-->
+                        <!--<id>stop-zookeeper</id>-->
+                        <!--<phase>post-integration-test</phase>-->
+                        <!--<goals>-->
+                            <!--<goal>stop</goal>-->
+                        <!--</goals>-->
+                    <!--</execution>-->
+                <!--</executions>-->
+            <!--</plugin>-->
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <skip>true</skip>
+                    <skip>false</skip>
                 </configuration>
                 <executions>
                     <execution>

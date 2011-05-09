@@ -45,6 +45,11 @@ public class ZkBlockingQueueUnboundedSingleThread extends MenagerieTest{
     private static final String testElement = "Test element";
 
     @Override
+    protected String getTestPath() {
+        return "/test-queue-unbounded-single-thread";
+    }
+
+    @Override
     protected void prepare() {
         testQueue = new ZkBlockingQueue<String>(testPath, new JavaSerializer<String>(), zkSessionManager);
     }

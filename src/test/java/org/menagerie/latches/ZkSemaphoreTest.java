@@ -36,11 +36,10 @@ public class ZkSemaphoreTest {
 
     @Before
     public void setup() throws Exception {
-
         zk = newZooKeeper();
 
         //be sure that the lock-place is created
-
+        ZkUtils.safeDelete(zk,basePath,-1);
         zk.create(basePath,new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 
         zkSessionManager = new BaseZkSessionManager(zk);

@@ -31,24 +31,27 @@ import java.io.IOException;
  */
 public abstract class MenagerieTest {
     protected static final String hostString = "localhost:2181";
-    protected static final String testPath = "/test";
+    protected String testPath = "/test";
     protected static final int timeout = 2000;
     protected static ZkSessionManager zkSessionManager;
 
-    protected static ZooKeeper zk;
+    protected ZooKeeper zk;
 
     @Before
     public void setup() throws Exception {
         zk = newZooKeeper();
+        testPath = getTestPath();
 
         //be sure that the lock-place is created
-        zk.create(testPath,new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+        ZkUtils.safeDelete(zk,testPath,-1);
+        zk.create(getTestPath(),new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 
         zkSessionManager = new BaseZkSessionManager(zk);
 
         prepare();
     }
 
+    protected abstract String getTestPath();
     /**
      * Prepare for the next test by constructing new objects, etc, as necessary
      */

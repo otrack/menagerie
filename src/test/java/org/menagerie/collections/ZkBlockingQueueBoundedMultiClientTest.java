@@ -43,9 +43,16 @@ public class ZkBlockingQueueBoundedMultiClientTest extends MenagerieTest{
 
     private static final ExecutorService service = Executors.newFixedThreadPool(2,new TestingThreadFactory());
     private static final int bound = 5;
+
+
     @AfterClass
     public static void shutdownAll(){
         service.shutdownNow();
+    }
+
+    @Override
+    protected String getTestPath() {
+        return "/test-queue-bounded-multi-client";
     }
 
     @Override
