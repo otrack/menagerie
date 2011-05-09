@@ -67,7 +67,9 @@ import java.util.concurrent.locks.ReadWriteLock;
  * @author Scott Fines
  * @version 1.0
  * @see java.util.concurrent.locks.ReentrantReadWriteLock
+ * @deprecated Use something else. This was a bad idea.
  */
+@Deprecated
 public final class ReentrantZkReadWriteLock implements ReadWriteLock {
     private static final String readLockPrefix="readLock";
     private static final String writeLockPrefix="writeLock";

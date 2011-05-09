@@ -22,7 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *         Time: 4:12:06 PM
  */
 @Beta
-public class ReentrantZkLock2 implements Lock {
+class ReentrantZkLock2 implements Lock {
     private static final byte[] emptyBytes = new byte[]{};
     private final ZkCommandExecutor executor;
     private final Lock localLock;
