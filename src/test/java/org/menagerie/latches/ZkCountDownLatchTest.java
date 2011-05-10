@@ -21,6 +21,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.menagerie.BaseZkSessionManager;
+import org.menagerie.latches.spi.ZkCountDownLatch;
 import org.menagerie.util.TestingThreadFactory;
 
 import java.io.IOException;
@@ -46,7 +47,7 @@ public class ZkCountDownLatchTest {
     private static final int timeout = 200000;
     private static final ExecutorService executor = Executors.newFixedThreadPool(3, new TestingThreadFactory());
 
-    private ZkCountDownLatch countDownLatch;
+    private DistributedCountDownLatch countDownLatch;
 
     @BeforeClass
     public static void setupBeforeClass() throws Exception {
@@ -89,7 +90,7 @@ public class ZkCountDownLatchTest {
     
     @Test(timeout = 5000l)
     public void testCountDownWorksWhenAwaitHappensAfterCountDown() throws Exception {
-        countDownLatch = new ZkCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
         System.out.println(countDownLatch.getCount());
         countDownLatch.countDown();
         countDownLatch.await();
@@ -97,7 +98,7 @@ public class ZkCountDownLatchTest {
 
     @Test(timeout = 5000l)
     public void testCountDownWorksWhenCountHappensOnAnotherThread() throws Exception{
-        countDownLatch = new ZkCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
         executor.submit(new Runnable() {
             @Override
             public void run() {
@@ -112,7 +113,7 @@ public class ZkCountDownLatchTest {
 
     @Test(timeout = 5000l)
     public void testCountDownWorksWithTwoCountsOnOtherThreads() throws Exception{
-        countDownLatch = new ZkCountDownLatch(2, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(2, baseBarrierPath, new BaseZkSessionManager(zk));
         executor.submit(new Runnable() {
             @Override
             public void run() {
@@ -136,9 +137,9 @@ public class ZkCountDownLatchTest {
 
     @Test(timeout = 5000l)
     public void testCountDownWorksWithTwoClients() throws Exception{
-         countDownLatch = new ZkCountDownLatch(2, baseBarrierPath, new BaseZkSessionManager(zk));
+         countDownLatch = LatchBuilder.newCountDownLatch(2, baseBarrierPath, new BaseZkSessionManager(zk));
         final ZooKeeper myOtherZooKeeper = newZooKeeper();
-        final ZkCountDownLatch joinedCountDownLatch = new ZkCountDownLatch(2,baseBarrierPath,new BaseZkSessionManager(myOtherZooKeeper));
+        final DistributedCountDownLatch joinedCountDownLatch = LatchBuilder.newCountDownLatch(2,baseBarrierPath,new BaseZkSessionManager(myOtherZooKeeper));
 
         executor.submit(new Runnable() {
             @Override
@@ -166,9 +167,9 @@ public class ZkCountDownLatchTest {
 
     @Test(timeout = 5000l)
     public void testCountDownSucceedsWithOneClientFailedAfterCountingDown() throws Exception{
-        countDownLatch = new ZkCountDownLatch(2, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(2, baseBarrierPath, new BaseZkSessionManager(zk));
         final ZooKeeper myOtherZooKeeper = newZooKeeper();
-        final ZkCountDownLatch joinedCountDownLatch = new ZkCountDownLatch(2,baseBarrierPath,new BaseZkSessionManager(myOtherZooKeeper));
+        final DistributedCountDownLatch joinedCountDownLatch = LatchBuilder.newCountDownLatch(2,baseBarrierPath,new BaseZkSessionManager(myOtherZooKeeper));
         System.out.printf("#1 Counting down at :%s%n",System.currentTimeMillis());
         joinedCountDownLatch.countDown();
         try {
@@ -188,14 +189,14 @@ public class ZkCountDownLatchTest {
 
     @Test(timeout = 5000l)
     public void testMultipleCountDownsWork() throws Exception{
-        countDownLatch = new ZkCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
         assertEquals("The Initial count down latch does not have a count of zero!",0,countDownLatch.getCount());
         countDownLatch.countDown();
         assertEquals("The Initial count down latch does not have a count of one!",1,countDownLatch.getCount());
         countDownLatch.await();
         countDownLatch.closeLatch();
 
-        countDownLatch = new ZkCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
         assertEquals("The Initial count down latch does not have a count of zero!",0,countDownLatch.getCount());
         countDownLatch.countDown();
         assertEquals("The Initial count down latch does not have a count of one!",1,countDownLatch.getCount());
@@ -204,7 +205,7 @@ public class ZkCountDownLatchTest {
 
     @Test
     public void testLatchTimesOutCorrectly() throws Exception {
-        countDownLatch = new ZkCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
+        countDownLatch = LatchBuilder.newCountDownLatch(1, baseBarrierPath, new BaseZkSessionManager(zk));
 
         boolean alerted = countDownLatch.await(500, TimeUnit.MILLISECONDS);
         assertTrue("The Count down latch returned an incorrect state!",!alerted);

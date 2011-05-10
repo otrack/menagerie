@@ -7,6 +7,7 @@ import org.junit.Test;
 import org.menagerie.BaseZkSessionManager;
 import org.menagerie.ZkSessionManager;
 import org.menagerie.ZkUtils;
+import org.menagerie.latches.spi.ZkSemaphore;
 import org.menagerie.util.TestingThreadFactory;
 
 import java.io.IOException;
@@ -64,7 +65,7 @@ public class ZkSemaphoreTest {
     @Test(timeout = 1000l)
     public void testAcquireSucceedsOneThread() throws Exception{
         int numPermits = 1;
-        ZkSemaphore semaphore = new ZkSemaphore(numPermits, basePath,zkSessionManager);
+        DistributedSemaphore semaphore = new ZkSemaphore(numPermits, basePath,zkSessionManager);
 
         semaphore.acquire();
 
@@ -77,7 +78,7 @@ public class ZkSemaphoreTest {
     @Test(timeout = 1000l)
     public void testTwoThreadsCanAccessSempahore() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
 
         testService.submit(new Runnable() {
             @Override
@@ -98,7 +99,7 @@ public class ZkSemaphoreTest {
     @Test(timeout = 1000l)
     public void testTwoClientsCanAccessSempahore() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
 
         semaphore.acquire();
         Future<Void> errorFuture = testService.submit(new Callable<Void>() {
@@ -107,7 +108,7 @@ public class ZkSemaphoreTest {
                 ZooKeeper zk = newZooKeeper();
                 try {
 
-                    ZkSemaphore semaphore2 = new ZkSemaphore(2, basePath, new BaseZkSessionManager(zk));
+                    DistributedSemaphore semaphore2 = new ZkSemaphore(2, basePath, new BaseZkSessionManager(zk));
                     semaphore2.acquire();
                     latch.countDown();
                 } finally {
@@ -125,7 +126,7 @@ public class ZkSemaphoreTest {
     @Test(timeout = 1500l)
     public void testRunOutOfPermitsTwoThreads() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(1,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(1,basePath,zkSessionManager);
         semaphore.acquire();
         Future<?> errorFuture = testService.submit(new Runnable() {
             @Override
@@ -151,14 +152,14 @@ public class ZkSemaphoreTest {
     @Test(timeout = 1500l)
     public void testRunOutOfPermitsTwoClients() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(1,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(1,basePath,zkSessionManager);
         semaphore.acquire();
         Future<Void> errorFuture = testService.submit(new Callable<Void>() {
             @Override
             public Void call() throws Exception {
                 ZooKeeper zk = newZooKeeper();
                 try {
-                    ZkSemaphore semaphore2 = new ZkSemaphore(1, basePath, new BaseZkSessionManager(zk));
+                    DistributedSemaphore semaphore2 = new ZkSemaphore(1, basePath, new BaseZkSessionManager(zk));
                     semaphore2.acquire();
                     latch.countDown();
                 } finally {
@@ -180,7 +181,7 @@ public class ZkSemaphoreTest {
 
     @Test(timeout = 1000l)
     public void testAcquireMultiplePermits() throws Exception{
-        ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
 
         semaphore.acquire(2);
         assertEquals("Incorrect number of permits reported!",0,semaphore.availablePermits());
@@ -195,7 +196,7 @@ public class ZkSemaphoreTest {
     @Test(timeout = 2000l)
     public void testAcquireMultiplePermitsBlocksUntilAvailableTwoThreads() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
 
         semaphore.acquire(2);
         assertEquals("Incorrect number of permits reported!",0,semaphore.availablePermits());
@@ -224,7 +225,7 @@ public class ZkSemaphoreTest {
     @Test(timeout = 2000l)
     public void testAcquireMultiplePermitsBlocksUntilAvailableTwoClients() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
 
         semaphore.acquire();
         semaphore.acquire();
@@ -234,7 +235,7 @@ public class ZkSemaphoreTest {
             public Void call() throws Exception {
                 ZooKeeper zk = newZooKeeper();
                 try {
-                    ZkSemaphore semaphore2 = new ZkSemaphore(2, basePath, new BaseZkSessionManager(zk));
+                    DistributedSemaphore semaphore2 = new ZkSemaphore(2, basePath, new BaseZkSessionManager(zk));
                     semaphore2.acquire(2);
                     latch.countDown();
                 } finally {
@@ -259,7 +260,7 @@ public class ZkSemaphoreTest {
 
     @Test(timeout = 1000l)
     public void testReleaseMultiplePermits() throws Exception{
-        ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
 
         semaphore.acquire();
         semaphore.acquire();
@@ -271,14 +272,14 @@ public class ZkSemaphoreTest {
 
     @Test(timeout = 1000l)
     public void testTryAcquire() throws Exception{
-        ZkSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
+        DistributedSemaphore semaphore = new ZkSemaphore(2,basePath,zkSessionManager);
         assertTrue("Semaphore did not acquire!",semaphore.tryAcquire());
     }
 
     @Test(timeout = 1000l)
     public void testTryAcquireTimesOut() throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        final ZkSemaphore semaphore = new ZkSemaphore(1,basePath,zkSessionManager);
+        final DistributedSemaphore semaphore = new ZkSemaphore(1,basePath,zkSessionManager);
         assertTrue("Semaphore did not acquire!",semaphore.tryAcquire());
 
         Future<Void> errorFuture = testService.submit(new Callable<Void>() {

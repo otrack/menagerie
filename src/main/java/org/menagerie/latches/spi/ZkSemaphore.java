@@ -13,7 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.menagerie.latches;
+package org.menagerie.latches.spi;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -24,6 +24,7 @@ import org.apache.zookeeper.data.Stat;
 import org.menagerie.ZkPrimitive;
 import org.menagerie.ZkSessionManager;
 import org.menagerie.ZkUtils;
+import org.menagerie.latches.DistributedSemaphore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +56,7 @@ import java.util.concurrent.TimeUnit;
  * @version 1.1
  * @see java.util.concurrent.Semaphore
  */
-public class ZkSemaphore extends ZkPrimitive {
+public final class ZkSemaphore extends ZkPrimitive implements DistributedSemaphore {
     private volatile int numPermits;
     private static final String permitPrefix = "permit";
     private static final char permitDelimiter = '-';
@@ -108,6 +109,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @throws InterruptedException if the current thread is interrupted
      */
+    @Override
     public void acquire() throws InterruptedException{
         tryAcquire(Long.MAX_VALUE,TimeUnit.DAYS);
     }
@@ -125,6 +127,7 @@ public class ZkSemaphore extends ZkPrimitive {
      * This method will ignore interruptions entirely. If the current Thread is interrupted, this method will continue
      * to wait. When it does return, its interrupt status will be set.
      */
+    @Override
     public void acquireUninterruptibly(){
         acquireUninterruptibly(1);
     }
@@ -142,6 +145,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @return true if a permit has been acquired, false otherwise
      */
+    @Override
     public boolean tryAcquire(){
         return tryAcquire(1);
     }
@@ -178,6 +182,7 @@ public class ZkSemaphore extends ZkPrimitive {
      * @return true if a permit has been acquired within the specified time, false otherwise
      * @throws InterruptedException if the current thread is interrupted
      */
+    @Override
     public boolean tryAcquire(long timeout, TimeUnit unit) throws InterruptedException{
         return tryAcquire(1,timeout,unit);
     }
@@ -193,6 +198,7 @@ public class ZkSemaphore extends ZkPrimitive {
      * However, calling this method without having acquired a permit previously may have dangerous consequences, and is
      * discouraged.
      */
+    @Override
     public void release(){
         release(1);
     }
@@ -223,6 +229,7 @@ public class ZkSemaphore extends ZkPrimitive {
      * @param permits the number of permits to acquire
      * @throws InterruptedException if the current thread is interrupted
      */
+    @Override
     public void acquire(int permits) throws InterruptedException{
         tryAcquire(permits,Long.MAX_VALUE,TimeUnit.DAYS);
     }
@@ -243,6 +250,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @param permits the number of permits to acquire
      */
+    @Override
     public void acquireUninterruptibly(int permits){
         setConnectionListener();
         ZooKeeper zk = zkSessionManager.getZooKeeper();
@@ -294,6 +302,7 @@ public class ZkSemaphore extends ZkPrimitive {
      * @param permits the number of permits to acquire
      * @return true if a permit has been acquired, false otherwise
      */
+    @Override
     public boolean tryAcquire(int permits){
         ZooKeeper zk = zkSessionManager.getZooKeeper();
 
@@ -357,6 +366,7 @@ public class ZkSemaphore extends ZkPrimitive {
      * @return true if a permit has been acquired within the specified time, false otherwise
      * @throws InterruptedException if the current thread is interrupted
      */
+    @Override
     public boolean tryAcquire(int permits, long timeout, TimeUnit unit)throws InterruptedException{
         if(Thread.interrupted())
             throw new InterruptedException();
@@ -419,6 +429,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @param permits the number of permits to release
      */
+    @Override
     public void release(int permits){
         ZooKeeper zk = zkSessionManager.getZooKeeper();
 
@@ -447,6 +458,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @return the number of permits available in this semaphore at the time of invocation
      */
+    @Override
     public int availablePermits(){
         int availablePermits = -getQueueSize();
         if(availablePermits<0)availablePermits=0;
@@ -461,6 +473,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @return true if there are parties waiting to acquire a permit
      */
+    @Override
     public final boolean hasQueuedParties(){
         return getQueueLength()>0;
     }
@@ -474,6 +487,7 @@ public class ZkSemaphore extends ZkPrimitive {
      *
      * @return the number of parties which are waiting for a permit.
      */
+    @Override
     public final int getQueueLength(){
         int queueLength = getQueueSize();
         if(queueLength<0)queueLength=0;
