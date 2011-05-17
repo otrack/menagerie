@@ -15,6 +15,7 @@
  */
 package org.menagerie.locks;
 
+import org.apache.log4j.Logger;
 import org.apache.zookeeper.*;
 import org.junit.After;
 import org.junit.Before;
@@ -24,13 +25,11 @@ import org.menagerie.BaseZkSessionManager;
 import org.menagerie.ZkSessionManager;
 import org.menagerie.ZkUtils;
 import org.menagerie.util.TestingThreadFactory;
-import org.omg.PortableServer.THREAD_POLICY_ID;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
@@ -49,7 +48,7 @@ import static org.junit.Assert.fail;
  *          Time: 13:49:20
  */
 public class ReentrantZkLock2Test {
-
+    private static final Logger logger = Logger.getLogger(ReentrantZkLock2Test.class);
     private static final String hostString = "localhost:2181";
     private static final String baseLockPath = "/test-locks";
     private static final int timeout = 2000;
@@ -63,7 +62,7 @@ public class ReentrantZkLock2Test {
         zk = newZooKeeper();
 
         //be sure that the lock-place is created
-        ZkUtils.recursiveSafeDelete(zk,baseLockPath,-1);
+        ZkUtils.recursiveSafeDelete(zk, baseLockPath, -1);
         zk.create(baseLockPath,new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 
         zkSessionManager = new BaseZkSessionManager(zk);
@@ -254,7 +253,9 @@ public class ReentrantZkLock2Test {
                 @Override
                 public Void call() throws Exception {
                     Lock secondLock = new ReentrantZkLock(baseLockPath, zkSessionManager);
+                    logger.debug("interruptible acquiring lock");
                     secondLock.lockInterruptibly();
+                    logger.debug("acquired");
                     try {
                         latch.countDown();
                     } finally {
@@ -263,12 +264,15 @@ public class ReentrantZkLock2Test {
                     return null;
                 }
             });
-
+            logger.debug("Waiting for latch...");
             boolean nowAcquired = latch.await(500, TimeUnit.MILLISECONDS);
-            assertTrue("The Second lock was acquired before the first lock was released!",!nowAcquired);
+            logger.debug("Latch completed");
+            assertTrue("The Second lock was acquired before the first lock was released!", !nowAcquired);
 
         }finally{
+            logger.debug("Unlocking...");
             firstLock.unlock();
+            logger.debug("Unlocked");
         }
         //make sure that no errors happen
         errorFuture.get();
@@ -284,7 +288,7 @@ public class ReentrantZkLock2Test {
             errorFuture = testService.submit(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-//                    Lock secondLock = new ReentrantZkLock(baseLockPath, zkSessionManager);
+//                    Lock secondLock = new ReentrantZkLock(baseLockPath, commandExecutor);
                     firstLock.lockInterruptibly();
                     try {
                         latch.countDown();
@@ -396,6 +400,49 @@ public class ReentrantZkLock2Test {
             assertTrue("Thread was not interrupted successfully!",bool.get());
         }finally{
             mainLock.unlock();
+        }
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryLockWorksWithNoContention() throws Exception{
+        Lock keptLock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        boolean acquired = keptLock.tryLock();
+        assertTrue("Lock did not acquire!",acquired);
+        keptLock.unlock();
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryLockReturnsFalseWhenSomeoneElseHasItDifferentInstances() throws Exception{
+        Lock keptLock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        keptLock.lock();
+        try{
+            final Future<Boolean> falseFuture = testService.submit(new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    Lock failLock = new ReentrantZkLock2(baseLockPath, zkSessionManager);
+                    return failLock.tryLock();
+                }
+            });
+            assertTrue("Try lock incorrectly acquired!",!falseFuture.get());
+        }finally{
+            keptLock.unlock();
+        }
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryLockReturnsFalseWhenSomeoneElseHasItSameInstance() throws Exception{
+        final Lock keptLock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        keptLock.lock();
+        try{
+            final Future<Boolean> falseFuture = testService.submit(new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    return keptLock.tryLock();
+                }
+            });
+            assertTrue("second thread incorrectly acquired lock!",!falseFuture.get());
+        }finally{
+            keptLock.unlock();
         }
     }
 
