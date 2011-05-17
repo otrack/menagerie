@@ -15,11 +15,14 @@
  */
 package org.menagerie;
 
-import org.apache.log4j.Logger;
+
 import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,7 +43,7 @@ import java.util.concurrent.Executors;
  * @version 1.0
  */
 public class DefaultZkSessionManager implements ZkSessionManager{
-    private static final Logger logger = Logger.getLogger(DefaultZkSessionManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(DefaultZkSessionManager.class);
     //this could potentially be a very write-heavy list, so a synchronized list will perform better
     //than a more traditional CopyOnWriteArrayList would be
     private List<ConnectionListener> listeners = Collections.synchronizedList(new ArrayList<ConnectionListener>());
@@ -124,7 +127,7 @@ public class DefaultZkSessionManager implements ZkSessionManager{
             try {
                 zk = new ZooKeeper(connectionString,timeout,new SessionWatcher(this));
             } catch (IOException e) {
-                logger.error(e);
+                logger.error("IOException gettingZookeeper Instance", e);
                 throw new RuntimeException(e);
             }
             if(zkSessionPollInterval>0){

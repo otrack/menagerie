@@ -87,7 +87,8 @@ public class ReentrantZkLock2Test {
     @Test(timeout = 1500l)
     public void testOnlyOneLockAllowedTwoThreads()throws Exception{
         final CountDownLatch latch = new CountDownLatch(1);
-        Lock firstLock = new ReentrantZkLock2(baseLockPath, zkSessionManager);
+        Lock firstLock = Locksmith.reentrantLock(zkSessionManager, baseLockPath);
+
         firstLock.lock();
         try{
             testService.submit(new Runnable() {

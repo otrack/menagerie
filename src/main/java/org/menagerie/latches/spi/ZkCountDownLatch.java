@@ -13,7 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.menagerie.latches;
+package org.menagerie.latches.spi;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -22,7 +22,10 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
 import org.menagerie.ZkSessionManager;
 import org.menagerie.ZkUtils;
-import org.menagerie.locks.ReentrantZkLock;
+
+import org.menagerie.latches.DistributedCountDownLatch;
+import org.menagerie.locks.Locksmith;
+
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +62,7 @@ import java.util.concurrent.locks.Lock;
  * @version 1.0
  * @see java.util.concurrent.CountDownLatch
  */
-public class ZkCountDownLatch extends AbstractZkBarrier {
+public final class ZkCountDownLatch extends AbstractZkBarrier implements DistributedCountDownLatch {
     private static final String latchPrefix = "countDownLatch";
 
     private final CreateMode countDownMode;
@@ -154,6 +157,7 @@ public class ZkCountDownLatch extends AbstractZkBarrier {
      *  <li> {@link InterruptedException} if the ZooKeeper client has trouble communicating with the ZooKeeper service
      * </ul>
      */
+    @Override
     public void countDown(){
         try{
             /*
@@ -181,6 +185,7 @@ public class ZkCountDownLatch extends AbstractZkBarrier {
      *  <li> {@link InterruptedException} if the ZooKeeper client has trouble communicating with the ZooKeeper service
      * </ul>
      */
+    @Override
     public long getCount(){
         try {
             List<String> children = ZkUtils.filterByPrefix(zkSessionManager.getZooKeeper().getChildren(baseNode,false),latchPrefix);
@@ -217,6 +222,7 @@ public class ZkCountDownLatch extends AbstractZkBarrier {
      * @throws InterruptedException if the current thread is interrupted, or if communication between the ZooKeeper
      * client and server fails in some way
      */
+    @Override
     public void await() throws InterruptedException{
         await(Long.MAX_VALUE, TimeUnit.MINUTES);
     }
@@ -253,6 +259,7 @@ public class ZkCountDownLatch extends AbstractZkBarrier {
      * @throws RuntimeException wrapping a {@link org.apache.zookeeper.KeeperException} if the ZooKeeper server goes
      *          wrong.
      */
+    @Override
     public boolean await(long timeout, TimeUnit unit)throws InterruptedException{
         return doWait(timeout,unit,latchPrefix);
     }
@@ -273,11 +280,12 @@ public class ZkCountDownLatch extends AbstractZkBarrier {
      * </ul>
      *
      */
+    @Override
     public void closeLatch() {
         ensureNodeExists();
         ZooKeeper zooKeeper = zkSessionManager.getZooKeeper();
         //TODO -sf- is there a non-blocking way to do this?
-        Lock lock = new ReentrantZkLock(baseNode, zkSessionManager, privileges);
+        Lock lock = Locksmith.reentrantLock(zkSessionManager, baseNode, privileges);
         try {
             lock.lock();
             clearState(zooKeeper,latchPrefix);
@@ -316,7 +324,7 @@ public class ZkCountDownLatch extends AbstractZkBarrier {
         ensureNodeExists();
         ZooKeeper zooKeeper = zkSessionManager.getZooKeeper();
         //TODO -sf- is there a non-blocking way to do this?
-        Lock lock = new ReentrantZkLock(baseNode, zkSessionManager, privileges);
+        Lock lock = Locksmith.reentrantLock(zkSessionManager, baseNode, privileges);
         try {
             lock.lock();
             if(zooKeeper.exists(baseNode+"/countDown-latchReady",false)==null){

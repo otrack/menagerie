@@ -28,7 +28,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
-
+import java.util.concurrent.locks.Lock;
 
 
 /**
@@ -44,11 +44,11 @@ import java.util.concurrent.locks.Condition;
 final class ZkCondition extends ZkPrimitive implements Condition {
     private static final String conditionPrefix="condition";
     private static final char conditionDelimiter = '-';
-    private final ReentrantZkLock distributedLock;
+    private final Lock distributedLock;
 
-    public ZkCondition(String baseNode, ZkSessionManager zkSessionManager, List<ACL> privileges, ReentrantZkLock lock) {
+    public ZkCondition(String baseNode, ZkSessionManager zkSessionManager, List<ACL> privileges, Lock distributedLock) {
         super(baseNode, zkSessionManager, privileges);
-        this.distributedLock = lock;
+        this.distributedLock = distributedLock;
     }
 
     @Override
@@ -58,7 +58,7 @@ final class ZkCondition extends ZkPrimitive implements Condition {
 
     @Override
     public void awaitUninterruptibly() {
-        if(!distributedLock.hasLock())
+        if(!distributedLock.tryLock())
             throw new IllegalMonitorStateException("await was called without owning the associated lock");
 
         //put a signal node onto zooKeeper, then wait for it to be deleted
@@ -95,7 +95,7 @@ final class ZkCondition extends ZkPrimitive implements Condition {
     public long awaitNanos(long nanosTimeout) throws InterruptedException {
         if(Thread.interrupted())
             throw new InterruptedException();
-        if(!distributedLock.hasLock())
+        if(!distributedLock.tryLock())
             throw new IllegalMonitorStateException("await was called without owning the associated lock");
         try {
             //release the associated zkLock
@@ -144,7 +144,7 @@ final class ZkCondition extends ZkPrimitive implements Condition {
 
     @Override
     public boolean awaitUntil(Date deadline) throws InterruptedException {
-        if(!distributedLock.hasLock())
+        if(!distributedLock.tryLock())
             throw new IllegalMonitorStateException("await is attempted without first owning the associated lock");
 
         long timeToWait = deadline.getTime()-System.currentTimeMillis();
@@ -161,7 +161,7 @@ final class ZkCondition extends ZkPrimitive implements Condition {
      */
     @Override
     public void signal() {
-        if(!distributedLock.hasLock())
+        if(!distributedLock.tryLock())
             throw new IllegalMonitorStateException("Signal is attempted without first owning the signalling lock");
 
         ZooKeeper zooKeeper = zkSessionManager.getZooKeeper();
@@ -182,7 +182,7 @@ final class ZkCondition extends ZkPrimitive implements Condition {
 
     @Override
     public void signalAll() {
-        if(!distributedLock.hasLock())
+        if(!distributedLock.tryLock())
             throw new IllegalMonitorStateException("Signal is attempted without first owning the signalling lock");
 
         ZooKeeper zooKeeper = zkSessionManager.getZooKeeper();

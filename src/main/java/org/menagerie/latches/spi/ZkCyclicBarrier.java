@@ -13,7 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.menagerie.latches;
+package org.menagerie.latches.spi;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -22,7 +22,9 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
 import org.menagerie.ZkSessionManager;
 import org.menagerie.ZkUtils;
-import org.menagerie.locks.ReentrantZkLock;
+import org.menagerie.latches.DistributedCyclicBarrier;
+import org.menagerie.latches.spi.AbstractZkBarrier;
+import org.menagerie.locks.Locksmith;
 
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
@@ -80,7 +82,7 @@ import java.util.concurrent.locks.Lock;
  * @version 1.0
  * @see java.util.concurrent.CyclicBarrier
  */
-public final class ZkCyclicBarrier extends AbstractZkBarrier {
+public final class ZkCyclicBarrier extends AbstractZkBarrier implements DistributedCyclicBarrier {
     private static final char delimiter ='-';
     private static final String barrierPrefix="party";
     private final CreateMode barrierMode;
@@ -238,6 +240,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
      * @throws BrokenBarrierException if another party breaks the barrier, or another party calls reset while
      *          waiting for the Barrier to complete
      */
+    @Override
     public void await() throws InterruptedException, BrokenBarrierException {
         try {
             await(Long.MAX_VALUE,TimeUnit.DAYS);
@@ -299,6 +302,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
      * @throws java.util.concurrent.TimeoutException if the maximum wait time is exceeded before the Barrier can be
      *          completed.
      */
+    @Override
     public void await(long timeout, TimeUnit unit) throws InterruptedException, BrokenBarrierException, TimeoutException {
         long timeLeftNanos = unit.toNanos(timeout);
         //add my node to the collection
@@ -371,6 +375,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
      *  <li> {@link InterruptedException} if the ZooKeeper client has trouble communicating with the ZooKeeper service
      * </ul>
      */
+    @Override
     public long getNumberWaiting(){
         try {
             return ZkUtils.filterByPrefix(zkSessionManager.getZooKeeper().getChildren(baseNode,false),barrierPrefix).size();
@@ -387,6 +392,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
      *
      * @return the number of parties required to trip this barrier
      */
+    @Override
     public long getParties(){
         return total;
     }
@@ -397,6 +403,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
      *
      * @return true if this barrier is broken.
      */
+    @Override
     public boolean isBroken(){
         try {
             return zkSessionManager.getZooKeeper().exists(getBrokenPath(),false)!=null;
@@ -417,10 +424,11 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
      * This may be accomplished using a Leader-election protocol. It may be preferable to simply create a new
      * Barrier instance on all nodes.
      */
+    @Override
     public void reset(){
         ZooKeeper zooKeeper = zkSessionManager.getZooKeeper();
         //TODO -sf- is there a non-blocking way to do this?
-        Lock lock = new ReentrantZkLock(baseNode, zkSessionManager, privileges);
+        Lock lock = Locksmith.reentrantLock(zkSessionManager, baseNode, privileges);
 
         try {
             lock.lock();
@@ -437,6 +445,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
 /*------------------------------------------------------------------------------------------------------------------*/
     /*private helper methods*/
 
+    @Override
     public boolean isCleared() throws InterruptedException, KeeperException {
         return zkSessionManager.getZooKeeper().exists(getClearedPath(),false)!=null;
     }
@@ -447,7 +456,7 @@ public final class ZkCyclicBarrier extends AbstractZkBarrier {
         //determine if we need to reset the state of the barrier
         ZooKeeper zooKeeper = zkSessionManager.getZooKeeper();
         //TODO -sf- is there a non-blocking way to do this?
-        Lock lock = new ReentrantZkLock(baseNode, zkSessionManager, privileges);
+        Lock lock = Locksmith.reentrantLock(zkSessionManager, baseNode, privileges);
 
         try {
             lock.lock();
