@@ -71,8 +71,9 @@ public class ReentrantZkLock2 implements Lock {
 
     @Override
     public void lockInterruptibly() throws InterruptedException {
-        if(Thread.interrupted())
+        if(Thread.currentThread().isInterrupted())
             throw new InterruptedException();
+
         if(holder.increment())return; //already have the lock
         try{
             holder.setHoldingThread(sync.acquireInterruptibly());

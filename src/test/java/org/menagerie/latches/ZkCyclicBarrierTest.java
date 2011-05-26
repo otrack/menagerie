@@ -18,6 +18,7 @@ package org.menagerie.latches;
 import org.apache.zookeeper.*;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.menagerie.BaseZkSessionManager;
 import org.menagerie.ZkCommand;
@@ -41,6 +42,7 @@ import static org.junit.Assert.fail;
  *          Date: 12-Dec-2010
  *          Time: 09:34:14
  */
+@Ignore("Ignoring until rewrite")
 public class ZkCyclicBarrierTest {
     private static final String baseBarrierPath = "/test-barriers";
     private static final int timeout = 5000;

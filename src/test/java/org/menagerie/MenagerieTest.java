@@ -44,6 +44,7 @@ public abstract class MenagerieTest {
 
         //be sure that the lock-place is created
         ZkUtils.safeDelete(zk,testPath,-1);
+
         zk.create(getTestPath(),new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 
         zkSessionManager = new BaseZkSessionManager(zk);

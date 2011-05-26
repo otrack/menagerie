@@ -44,6 +44,7 @@ import static org.junit.Assert.assertEquals;
  *          Date: 21-Nov-2010
  *          Time: 13:49:20
  */
+@Ignore("Ignoring until rewrite")
 public class ReentrantZkLockTest {
 
     private static final String hostString = "localhost:2181";

@@ -17,6 +17,7 @@ package org.menagerie.collections;
 
 import org.apache.zookeeper.KeeperException;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.menagerie.JavaSerializer;
 import org.menagerie.MenagerieTest;
@@ -39,6 +40,7 @@ import static org.junit.Assert.assertTrue;
  *          Date: 20-Jan-2011
  *          Time: 08:39:05
  */
+@Ignore("Ignoring until rewrite")
 public class ZkBlockingQueueUnboundedSingleThread extends MenagerieTest{
 
     private BlockingQueue<String> testQueue;

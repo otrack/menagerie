@@ -16,6 +16,7 @@
 package org.menagerie.locks;
 
 import org.apache.zookeeper.ZooDefs;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.menagerie.MenagerieTest;
 import org.menagerie.util.TestingThreadFactory;
@@ -31,6 +32,7 @@ import static org.junit.Assert.assertTrue;
  * @author Scott Fines
  * @version 1.0
  */
+@Ignore("Ignoring until rewrite")
 public class ZkReadWriteLockTest extends MenagerieTest {
 
     private static final ExecutorService testService = Executors.newFixedThreadPool(2, new TestingThreadFactory());

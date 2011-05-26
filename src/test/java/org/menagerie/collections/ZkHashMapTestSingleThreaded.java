@@ -3,11 +3,13 @@ package org.menagerie.collections;
 import org.apache.zookeeper.*;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
-import org.menagerie.*;
+import org.menagerie.BaseZkSessionManager;
+import org.menagerie.ZkSessionManager;
+import org.menagerie.ZkUtils;
 
 import java.io.IOException;
-import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +28,7 @@ import static org.junit.Assert.*;
  *          Date: 08-Jan-2011
  *          Time: 10:43:03
  */
+@Ignore("Ignoring until rewrite")
 public class ZkHashMapTestSingleThreaded {
     private static final String hostString = "localhost:2181";
     private static final String baseLockPath = "/test-maps";

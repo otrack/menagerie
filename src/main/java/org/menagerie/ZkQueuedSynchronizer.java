@@ -108,7 +108,7 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
      * @throws InterruptedException if the current thread is interrupted
      */
     public final String acquireInterruptibly() throws InterruptedException, KeeperException {
-        final String node = commandExecutor.execute(new ZkCommand<String>() {
+        final String node = commandExecutor.executeInterruptibly(new ZkCommand<String>() {
             @Override
             public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
                 return createNode(zk);
@@ -192,7 +192,7 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
      * @throws InterruptedException if the thread has been interrupted
      */
     public final String tryAcquireNanos(long timeoutNanos) throws KeeperException,InterruptedException{
-        if(Thread.interrupted())
+        if(Thread.currentThread().isInterrupted())
             throw new InterruptedException();
         long timeout = timeoutNanos;
 
@@ -200,29 +200,33 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
         final String node = commandExecutor.executeInterruptibly(new ZkCommand<String>() {
             @Override
             public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
-                if (Thread.interrupted())
+                if (Thread.currentThread().isInterrupted())
                     throw new InterruptedException();
+
                 return createNode(zk);
             }
         });
         long end = System.nanoTime();
-        if(Thread.interrupted()){
+        if(Thread.currentThread().isInterrupted()){
+            logger.trace("Thread has been interrupted, aborting attempt");
             cleanupAfterFailure(node);
             throw new InterruptedException();
         }
         timeout-=(end-start);
         if(timeout<0){
+            logger.trace("Timeout has happened before acquisition occurred; aborting attempt");
             cleanupAfterFailure(node);
             return null;
         }
         while(timeout>0){
-            if(Thread.interrupted())
+            if(Thread.currentThread().isInterrupted())
                 throw new InterruptedException();
             start = System.nanoTime();
             boolean localAcquired = localLock.tryLock(timeout, TimeUnit.NANOSECONDS);
             end = System.nanoTime();
             timeout-=(end-start);
             if(!localAcquired||timeout<0){
+                logger.trace("Local lock not acquired within the specified timeout, aborting attempt");
                 cleanupAfterFailure(node);
                 return null;
             }
@@ -231,8 +235,9 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
                 boolean acquired = commandExecutor.execute(new ZkCommand<Boolean>() {
                     @Override
                     public Boolean execute(ZooKeeper zk) throws KeeperException, InterruptedException {
-                        if(Thread.interrupted())
+                        if(Thread.currentThread().isInterrupted())
                             throw new InterruptedException();
+
                         return tryAcquireDistributed(zk,node,true);
                     }
                 });
@@ -243,15 +248,19 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
                     return null;
                 }else if(!acquired){
                     timeout = condition.awaitNanos(timeout);
+                }else{
+                    return node;
                 }
             }finally{
                 localLock.unlock();
             }
         }
         if(timeout<0){
+            logger.trace("Timeout occurred before acquisition could occur; Aborting attempt");
             cleanupAfterFailure(node);
             return null;
         }
+        logger.trace("Attempt successful!");
         return node;
     }
 

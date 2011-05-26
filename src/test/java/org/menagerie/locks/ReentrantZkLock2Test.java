@@ -50,7 +50,7 @@ import static org.junit.Assert.fail;
 public class ReentrantZkLock2Test {
     private static final Logger logger = Logger.getLogger(ReentrantZkLock2Test.class);
     private static final String hostString = "localhost:2181";
-    private static final String baseLockPath = "/test-locks";
+    private static final String baseLockPath = "/test-locks2";
     private static final int timeout = 2000;
     private static final ExecutorService testService = Executors.newFixedThreadPool(2, new TestingThreadFactory());
 
@@ -404,6 +404,60 @@ public class ReentrantZkLock2Test {
         }
     }
 
+    @Test(timeout = 2000l)
+    public void testLockInterruptiblyInterruptibleIfThreadAlreadyInterruptedOnEntry() throws Exception{
+        /*
+        The idea here is to test that, if the thread we have is interrupted BEFORE entry into the method,
+        that it throws an InterruptedException.
+        */
+        final AtomicBoolean bool = new AtomicBoolean();
+
+        Thread t = new Thread(){
+
+            @Override
+            public void run() {
+                ReentrantZkLock2 lock = new ReentrantZkLock2(baseLockPath, zkSessionManager);
+                //interrupt the current thread
+                Thread.currentThread().interrupt();
+
+                logger.debug("Attempting to acquire interruptibly. Expected InterruptedException");
+
+
+                logger.trace("Is current thread interrupted()?"+Thread.currentThread().isInterrupted());
+                //now try to lock interruptibly
+
+                try {
+                    lock.lockInterruptibly();
+                } catch (InterruptedException e) {
+                    bool.set(true);
+                    return;
+                }
+                bool.set(false);
+            }
+        };
+
+        t.start();
+        t.join();
+
+        //now check that we were interrupted
+        assertTrue("Lock was not interrupted before entry!",bool.get());
+    }
+
+    @Test(timeout = 1000l)
+    public void testLockInterruptiblyReentrant() throws Exception{
+        Lock lock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        lock.lockInterruptibly();
+        try{
+            //try to enter the lock again
+            lock.lockInterruptibly();
+            //success! we're gravy
+            lock.unlock();
+        }finally{
+            lock.unlock();
+        }
+    }
+
+
     @Test(timeout = 1000l)
     public void testTryLockWorksWithNoContention() throws Exception{
         Lock keptLock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
@@ -446,6 +500,98 @@ public class ReentrantZkLock2Test {
             keptLock.unlock();
         }
     }
+
+    @Test(timeout = 1000l)
+    public void testTryLockInterruptibleBeforeEntry() throws Exception{
+         /*
+        The idea here is to test that, if the thread we have is interrupted BEFORE entry into the method,
+        that it throws an InterruptedException.
+        */
+        final AtomicBoolean bool = new AtomicBoolean();
+
+        Thread t = new Thread(){
+
+            @Override
+            public void run() {
+                ReentrantZkLock2 lock = new ReentrantZkLock2(baseLockPath, zkSessionManager);
+                //interrupt the current thread
+                Thread.currentThread().interrupt();
+
+                logger.debug("Attempting to acquire interruptibly. Expected InterruptedException");
+
+
+                logger.trace("Is current thread interrupted()?"+Thread.currentThread().isInterrupted());
+                //now try to lock interruptibly
+
+                try {
+                    lock.tryLock(Long.MAX_VALUE,TimeUnit.DAYS);
+                } catch (InterruptedException e) {
+                    bool.set(true);
+                    return;
+                }
+                bool.set(false);
+            }
+        };
+
+        t.start();
+        t.join();
+
+        //now check that we were interrupted
+        assertTrue("Lock was not interrupted before entry!",bool.get());
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryLockReentrant() throws Exception{
+        Lock lock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        lock.tryLock();
+        try{
+            lock.tryLock();
+            lock.unlock();
+        }finally{
+            lock.unlock();
+        }
+
+    }
+
+
+    @Test(timeout = 1000l)
+    public void testTimedTryLockWorks() throws Exception{
+        Lock lock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        logger.debug("Acquiring the lock for the first time...");
+        lock.tryLock(Long.MAX_VALUE,TimeUnit.DAYS);
+        //we are good, lock was acquired!
+        lock.unlock();
+    }
+
+    @Test(timeout = 1000l)
+    public void testTimedTryLockReentrant() throws Exception{
+        Lock lock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        logger.debug("Acquiring the lock for the first time...");
+        lock.tryLock(Long.MAX_VALUE,TimeUnit.DAYS);
+        try{
+            logger.debug("Attempting to re-acquire the lock on the same thread");
+            lock.tryLock(Long.MAX_VALUE,TimeUnit.DAYS);
+            lock.unlock();
+        }finally{
+            lock.unlock();
+        }
+
+    }
+
+    @Test(timeout = 1000l)
+    public void testUnlockWorks() throws Exception{
+        Lock lock = new ReentrantZkLock2(baseLockPath,zkSessionManager);
+        logger.debug("Acquiring the lock for the first time...");
+        lock.lock();
+        //we are good, lock was acquired!
+        lock.unlock();
+
+        //see if you can lock it again
+        lock.lock();
+
+        lock.unlock();
+    }
+
 
     @Test(timeout = 1500l)
     @Ignore("Ignored until Conditions are fully implemented in ReentrantZkLock2")

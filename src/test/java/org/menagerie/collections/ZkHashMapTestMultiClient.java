@@ -16,6 +16,7 @@
 package org.menagerie.collections;
 
 import org.apache.zookeeper.ZooKeeper;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.menagerie.BaseZkSessionManager;
 import org.menagerie.MenagerieTest;
@@ -36,6 +37,7 @@ import static org.junit.Assert.fail;
  *          Date: 29-Jan-2011
  *          Time: 16:21:20
  */
+@Ignore("Ignoring until rewrite")
 public class ZkHashMapTestMultiClient extends MenagerieTest{
     private static ZkHashMap<String,String> testMap;
     private static Serializer<Map.Entry<String,String>> serializer;

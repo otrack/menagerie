@@ -3,6 +3,7 @@ package org.menagerie.latches;
 import org.apache.zookeeper.*;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.menagerie.BaseZkSessionManager;
 import org.menagerie.ZkSessionManager;
@@ -25,6 +26,7 @@ import static org.junit.Assert.assertTrue;
  *          Date: 11-Jan-2011
  *          Time: 19:25:46
  */
+@Ignore("Ignoring until rewrite")
 public class ZkSemaphoreTest {
 
     private static final String hostString = "localhost:2181";

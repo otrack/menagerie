@@ -45,19 +45,19 @@ public class ZkCommandExecutor {
             try{
                 return command.execute(sessionManager.getZooKeeper());
             } catch (InterruptedException e) {
-                logger.debug("Command"+command+" was interrupted. Retrying");
+                logger.debug("Command "+command+" was interrupted. Retrying");
                 doWait(retry, delayMillis);
             } catch (KeeperException.ConnectionLossException kce) {
                 if(exception==null){
                     exception = kce;
                 }
-                logger.debug("Connection was lost while comamnd "+ command +"was attempted. Retrying");
+                logger.debug("Connection was lost while command "+ command +"was attempted. Retrying");
                 doWait(retry, delayMillis);
             } catch(KeeperException.SessionExpiredException kse){
                 if(exception==null){
                     exception = kse;
                 }
-                logger.info("Session expired while comamnd "+ command +"was attempted. Retrying with new session");
+                logger.info("Session expired while command "+ command +"was attempted. Retrying with new session");
                 throw kse;
             }
         }
