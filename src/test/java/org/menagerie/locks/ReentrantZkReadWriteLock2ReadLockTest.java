@@ -702,7 +702,88 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
         writeFuture.get();
     }
 
+     @Test(timeout = 1000l)
+    public void testTryReadLockTimedInterruptible() throws Exception{
+        /*
+        Tests that a read lock's attempt to Lock can be interrupted in
+        mid-acquisition.
 
+        Note: This depends on the ability of a single write lock to block
+        the acquisition of a read lock. This method will likely fail if that
+        does not work correctly
+        */
+        final CyclicBarrier barrier = new CyclicBarrier(2);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        final AtomicReference<Thread> otherThread = new AtomicReference<Thread>();
+        Future<Boolean> future = testService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                otherThread.set(Thread.currentThread());
+                Lock readLock = rwLock.readLock();
+                //wait for other thread to be ready
+                barrier.await();
+                //now attempt to lock interruptibly
+                try{
+                    readLock.tryLock(1,TimeUnit.SECONDS);
+                }catch(InterruptedException ie){
+                    //we were successfully interrupted
+                    return true;
+                }
+                return false;
+            }
+        });
+        final Lock writeLock = rwLock.writeLock();
+        writeLock.lock();
+        try{
+            barrier.await(); //now we are ready to interrupt the other thread
+
+            //interrupt the other thread
+            otherThread.get().interrupt();
+
+            //make sure we get back true
+            boolean interrupted = future.get();
+            assertTrue("Other thread was not interrupted!",interrupted);
+        }finally{
+            writeLock.unlock();
+        }
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockTimedInterruptibleOnEntry() throws Exception{
+        /*
+        Tests that a read lock will recognize that it has been interrupted
+        on entry of the lockInterruptibly() method
+        */
+
+        final CyclicBarrier barrier = new CyclicBarrier(2);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        final AtomicReference<Thread> otherThread = new AtomicReference<Thread>();
+        Future<Boolean> future = testService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                otherThread.set(Thread.currentThread());
+                barrier.await();
+                //wait until the current thread is interrupted
+                while(!Thread.currentThread().isInterrupted()){
+                    //spin lock until we know we're interrupted
+                }
+                //attempt to lock interruptibly--should blow up
+                try{
+                    rwLock.readLock().tryLock(1, TimeUnit.SECONDS);
+                }catch(InterruptedException ie){
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        barrier.await();
+        //we know the thread has been set
+        otherThread.get().interrupt();
+        //wait for completion
+        final Boolean interrupted = future.get();
+        assertTrue("Lock did not respond to interruption!",interrupted);
+    }
 
     @Test(timeout = 1000l)
     public void testTwothreadsHaveAccessViaSameReadLock() throws Exception{
