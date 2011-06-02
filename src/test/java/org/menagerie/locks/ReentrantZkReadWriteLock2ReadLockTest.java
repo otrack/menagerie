@@ -31,7 +31,7 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
 
     private static final Logger logger = Logger.getLogger(ReentrantZkLock2Test.class);
     private static final String hostString = "localhost:2181";
-    private static final String baseLockPath = "/test-readwrite-locks-2";
+    private static final String baseLockPath = "/test-readwrite-locks-readlock-tests-2";
     private static final int timeout = 2000;
     private static final ExecutorService testService = Executors.newFixedThreadPool(2, new TestingThreadFactory());
 
