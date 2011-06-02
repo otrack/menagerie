@@ -196,36 +196,136 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
 
     @Test(timeout = 1000l)
     public void testReadLocksReentrant() throws Exception{
-        /*
-        Tests that, if you are on the same thread, you can access the read lock twice.
+       /*
+        Tests that lock() is reentrant by allowing two locks to acquire on the same thread.
 
-        This test will timeout if there is an error with the logic
+        Note: This test relies on a WriteLock being unable to acquire while ReadLocks own the lock.
+        If this mechanism is broken, then this test will fail
         */
-        ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        final ReentrantZkReadWriteLock2 rwLock = new ReentrantZkReadWriteLock2(baseLockPath, zkSessionManager);
         Lock readLock = rwLock.readLock();
+
         readLock.lock();
+        Future<Void> writeFuture = testService.submit(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                Lock writeLock = rwLock.writeLock();
+                writeLock.lockInterruptibly();
+                try{
+                    return null;
+                }finally {
+                    writeLock.unlock();
+                }
+            }
+        });
+        //make sure write lock does not acquire
+        boolean timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //lock again
         readLock.lock();
 
-        //now unlock twice to ensure that it's locks
+        //make sure that we still can't acquire the write lock
+        timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //now unlock one lock
         readLock.unlock();
+
+        //make sure that we still are safely acquired
+         timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired after releasing only one lock!",timedOut);
+
+        //unlock the last lock
         readLock.unlock();
+
+        //now we should be perfectly okay, so fail if it times out
+        writeFuture.get();
     }
 
     @Test(timeout = 1000l)
     public void testReadLocksInterruptiblyReentrant() throws Exception{
         /*
-        Tests that, if you are on the same thread, you can access the read lock twice.
+        Tests that lockInterruptibly is reentrant by allowing two locks to acquire on the same thread.
 
-        This test will timeout if there is an error with the logic
+        Note: This test relies on a WriteLock being unable to acquire while ReadLocks own the lock.
+        If this mechanism is broken, then this test will fail
         */
-        ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        final ReentrantZkReadWriteLock2 rwLock = new ReentrantZkReadWriteLock2(baseLockPath, zkSessionManager);
         Lock readLock = rwLock.readLock();
+
         readLock.lockInterruptibly();
+        Future<Void> writeFuture = testService.submit(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                Lock writeLock = rwLock.writeLock();
+                writeLock.lockInterruptibly();
+                try{
+                    return null;
+                }finally {
+                    writeLock.unlock();
+                }
+            }
+        });
+        //make sure write lock does not acquire
+        boolean timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //lock again
         readLock.lockInterruptibly();
 
-        //now unlock twice to ensure that it's locks
+        //make sure that we still can't acquire the write lock
+        timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //now unlock one lock
         readLock.unlock();
+
+        //make sure that we still are safely acquired
+         timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired after releasing only one lock!",timedOut);
+
+        //unlock the last lock
         readLock.unlock();
+
+        //now we should be perfectly okay, so fail if it times out
+        writeFuture.get();
     }
 
     @Test(timeout = 1000l)
@@ -363,9 +463,246 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
     public void testTryReadLockReturnsFalseIfNotAcquirable() throws Exception{
         /*
         Tests that tryLock will return false if the lock cannot be acquired
+
+        Note: This depends on writeLock's ability to correctly stop read locks
+        from acquiring. If that mechanism is incorrect, then this test will
+        fail
         */
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        Lock writeLock = rwLock.writeLock();
+        writeLock.lock();
+        try{
+            final Future<Boolean> future = testService.submit(new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    return rwLock.readLock().tryLock();
+                }
+            });
+
+            boolean notAcquired = !future.get();
+            assertTrue("Read Lock incorrectly reported successful acquisition!",notAcquired);
+        }finally{
+            writeLock.unlock();
+        }
 
     }
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockReentrant() throws Exception{
+        /*
+        Tests that tryLock is reentrant by allowing two locks to acquire on the same thread.
+
+        Note: This test relies on a WriteLock being unable to acquire while ReadLocks own the lock.
+        If this mechanism is broken, then this test will fail
+        */
+        final ReentrantZkReadWriteLock2 rwLock = new ReentrantZkReadWriteLock2(baseLockPath, zkSessionManager);
+        Lock readLock = rwLock.readLock();
+
+        boolean acquired = readLock.tryLock();
+        assertTrue("lock not acquired!",acquired);
+        Future<Void> writeFuture = testService.submit(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                Lock writeLock = rwLock.writeLock();
+                writeLock.lockInterruptibly();
+                try{
+                    return null;
+                }finally {
+                    writeLock.unlock();
+                }
+            }
+        });
+        //make sure write lock does not acquire
+        boolean timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //lock again
+        acquired = readLock.tryLock();
+        assertTrue("lock not acquired reentrantly!",acquired);
+
+        //make sure that we still can't acquire the write lock
+        timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //now unlock one lock
+        readLock.unlock();
+
+        //make sure that we still are safely acquired
+         timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired after releasing only one lock!",timedOut);
+
+        //unlock the last lock
+        readLock.unlock();
+
+        //now we should be perfectly okay, so fail if it times out
+        writeFuture.get();
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockTimedPreventsSameWriteLockAccess() throws Exception{
+        /*
+        Tests that if a Read lock acquires the lock through a timed mechanism,
+        then the same write lock instance can't acquire
+        */
+        final CountDownLatch latch = new CountDownLatch(1);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        Lock readLock = rwLock.readLock();
+        logger.debug("Acquiring read lock");
+        boolean acquired = readLock.tryLock(100, TimeUnit.MILLISECONDS);
+        assertTrue("Read lock was not correctly acquired!",acquired);
+        Future<Void> future;
+        try{
+            future = testService.submit(new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+
+//                    ReadWriteLock secondLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+                    Lock writeLock = rwLock.writeLock();
+                    logger.debug("Attempting to acquire write lock");
+                    writeLock.lock();
+                    logger.debug("Write lock acquired");
+                    try{
+                        latch.countDown();
+                    }finally{
+                        logger.debug("Attempting to unlock write lock");
+                        writeLock.unlock();
+                        logger.debug("unlock of write lock successful");
+                    }
+                    return null;
+                }
+            });
+
+            boolean notAcquired = !latch.await(250, TimeUnit.MILLISECONDS);
+            assertTrue("The write lock was improperly acquired!",notAcquired);
+
+        }finally{
+            logger.debug("Attempting to unlock read lock");
+            readLock.unlock();
+            logger.debug("unlock of read lock successful");
+        }
+
+        //check that the lock gets acquired correctly
+        acquired = latch.await(500, TimeUnit.SECONDS);
+        assertTrue("Write lock was never acquired!",acquired);
+        future.get();
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockTimedReturnsFalseIfNotAcquirable() throws Exception{
+        /*
+        Tests that tryLockTimed will return false if the lock cannot be acquired in the time specified
+
+        Note: This depends on writeLock's ability to correctly stop read locks
+        from acquiring. If that mechanism is incorrect, then this test will
+        fail
+        */
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        Lock writeLock = rwLock.writeLock();
+        writeLock.lock();
+        try{
+            final Future<Boolean> future = testService.submit(new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    return rwLock.readLock().tryLock(200,TimeUnit.MILLISECONDS);
+                }
+            });
+
+            boolean notAcquired = !future.get();
+            assertTrue("Read Lock incorrectly reported successful acquisition!",notAcquired);
+        }finally{
+            writeLock.unlock();
+        }
+
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockTimedReentrant() throws Exception{
+        /*
+        Tests that tryLock is reentrant by allowing two locks to acquire on the same thread.
+
+        Note: This test relies on a WriteLock being unable to acquire while ReadLocks own the lock.
+        If this mechanism is broken, then this test will fail
+        */
+        final ReentrantZkReadWriteLock2 rwLock = new ReentrantZkReadWriteLock2(baseLockPath, zkSessionManager);
+        Lock readLock = rwLock.readLock();
+
+        boolean acquired = readLock.tryLock(100,TimeUnit.MILLISECONDS);
+        assertTrue("lock not acquired!",acquired);
+        Future<Void> writeFuture = testService.submit(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                Lock writeLock = rwLock.writeLock();
+                writeLock.lockInterruptibly();
+                try{
+                    return null;
+                }finally {
+                    writeLock.unlock();
+                }
+            }
+        });
+        //make sure write lock does not acquire
+        boolean timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //lock again
+        acquired = readLock.tryLock(100,TimeUnit.MILLISECONDS);
+        assertTrue("lock not acquired reentrantly!",acquired);
+
+        //make sure that we still can't acquire the write lock
+        timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired!",timedOut);
+
+        //now unlock one lock
+        readLock.unlock();
+
+        //make sure that we still are safely acquired
+         timedOut = false;
+        try{
+            writeFuture.get(100, TimeUnit.MILLISECONDS);
+        }catch(TimeoutException te){
+            //this is what we hope for, so we can move on
+            timedOut=true;
+        }
+        assertTrue("WriteLock was incorrectly acquired after releasing only one lock!",timedOut);
+
+        //unlock the last lock
+        readLock.unlock();
+
+        //now we should be perfectly okay, so fail if it times out
+        writeFuture.get();
+    }
+
+
 
     @Test(timeout = 1000l)
     public void testTwothreadsHaveAccessViaSameReadLock() throws Exception{
