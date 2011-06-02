@@ -83,6 +83,9 @@ public class ReentrantZkReadWriteLock2 implements ReadWriteLock {
 
         @Override
         public void lockInterruptibly() throws InterruptedException {
+            if(Thread.currentThread().isInterrupted())
+                throw new InterruptedException();
+
             if(lockHolder.readIncrement())return;
             try{
                 lockHolder.setReadingThread(sync.acquireSharedInterruptibly());
@@ -161,6 +164,8 @@ public class ReentrantZkReadWriteLock2 implements ReadWriteLock {
 
         @Override
         public void lockInterruptibly() throws InterruptedException {
+            if(Thread.currentThread().isInterrupted())
+                throw new InterruptedException();
             if(lockHolder.writeIncrement())return;
             try{
                 lockHolder.setWritingThread(sync.acquireSharedInterruptibly());

@@ -15,6 +15,7 @@ import org.menagerie.util.TestingThreadFactory;
 
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 
@@ -147,6 +148,53 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
     }
 
     @Test(timeout = 1000l)
+    public void testOneReadLockDoesNotAllowSameWriteLockAccess() throws Exception{
+        /*
+        Tests that if a Read lock has the lock, then the same write lock instance can't acquire
+        */
+        final CountDownLatch latch = new CountDownLatch(1);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        Lock readLock = rwLock.readLock();
+        logger.debug("Acquiring read lock");
+        readLock.lock();
+        Future<Void> future;
+        try{
+            future = testService.submit(new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+
+//                    ReadWriteLock secondLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+                    Lock writeLock = rwLock.writeLock();
+                    logger.debug("Attempting to acquire write lock");
+                    writeLock.lock();
+                    logger.debug("Write lock acquired");
+                    try{
+                        latch.countDown();
+                    }finally{
+                        logger.debug("Attempting to unlock write lock");
+                        writeLock.unlock();
+                        logger.debug("unlock of write lock successful");
+                    }
+                    return null;
+                }
+            });
+
+            boolean notAcquired = !latch.await(250, TimeUnit.MILLISECONDS);
+            assertTrue("The write lock was improperly acquired!",notAcquired);
+
+        }finally{
+            logger.debug("Attempting to unlock read lock");
+            readLock.unlock();
+            logger.debug("unlock of read lock successful");
+        }
+
+        //check that the lock gets acquired correctly
+        final boolean acquired = latch.await(500, TimeUnit.SECONDS);
+        assertTrue("Write lock was never acquired!",acquired);
+        future.get();
+    }
+
+    @Test(timeout = 1000l)
     public void testReadLocksReentrant() throws Exception{
         /*
         Tests that, if you are on the same thread, you can access the read lock twice.
@@ -161,6 +209,162 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
         //now unlock twice to ensure that it's locks
         readLock.unlock();
         readLock.unlock();
+    }
+
+    @Test(timeout = 1000l)
+    public void testReadLocksInterruptiblyReentrant() throws Exception{
+        /*
+        Tests that, if you are on the same thread, you can access the read lock twice.
+
+        This test will timeout if there is an error with the logic
+        */
+        ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        Lock readLock = rwLock.readLock();
+        readLock.lockInterruptibly();
+        readLock.lockInterruptibly();
+
+        //now unlock twice to ensure that it's locks
+        readLock.unlock();
+        readLock.unlock();
+    }
+
+    @Test(timeout = 1000l)
+    public void testReadLockInterruptible() throws Exception{
+        /*
+        Tests that a read lock's attempt to Lock can be interrupted in
+        mid-acquisition.
+
+        Note: This depends on the ability of a single write lock to block
+        the acquisition of a read lock. This method will likely fail if that
+        does not work correctly
+        */
+        final CyclicBarrier barrier = new CyclicBarrier(2);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        final AtomicReference<Thread> otherThread = new AtomicReference<Thread>();
+        Future<Boolean> future = testService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                otherThread.set(Thread.currentThread());
+                Lock readLock = rwLock.readLock();
+                //wait for other thread to be ready
+                barrier.await();
+                //now attempt to lock interruptibly
+                try{
+                    readLock.lockInterruptibly();
+                }catch(InterruptedException ie){
+                    //we were successfully interrupted
+                    return true;
+                }
+                return false;
+            }
+        });
+        final Lock writeLock = rwLock.writeLock();
+        writeLock.lock();
+        try{
+            barrier.await(); //now we are ready to interrupt the other thread
+
+            //interrupt the other thread
+            otherThread.get().interrupt();
+
+            //make sure we get back true
+            boolean interrupted = future.get();
+            assertTrue("Other thread was not interrupted!",interrupted);
+        }finally{
+            writeLock.unlock();
+        }
+    }
+
+    @Test(timeout = 1000l)
+    public void testReadLockInterruptibleOnEntry() throws Exception{
+        /*
+        Tests that a read lock will recognize that it has been interrupted
+        on entry of the lockInterruptibly() method
+        */
+
+        final CyclicBarrier barrier = new CyclicBarrier(2);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        final AtomicReference<Thread> otherThread = new AtomicReference<Thread>();
+        Future<Boolean> future = testService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                otherThread.set(Thread.currentThread());
+                barrier.await();
+                //wait until the current thread is interrupted
+                while(!Thread.currentThread().isInterrupted()){
+                    //spin lock until we know we're interrupted
+                }
+                //attempt to lock interruptibly--should blow up
+                try{
+                    rwLock.readLock().lockInterruptibly();
+                }catch(InterruptedException ie){
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        barrier.await();
+        //we know the thread has been set
+        otherThread.get().interrupt();
+        //wait for completion
+        final Boolean interrupted = future.get();
+        assertTrue("Lock did not respond to interruption!",interrupted);
+    }
+
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockPreventsSameWriteLockAccess() throws Exception{
+        /*
+        Tests that if a Read lock has the lock, then the same write lock instance can't acquire
+        */
+        final CountDownLatch latch = new CountDownLatch(1);
+        final ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+        Lock readLock = rwLock.readLock();
+        logger.debug("Acquiring read lock");
+        readLock.tryLock();
+        Future<Void> future;
+        try{
+            future = testService.submit(new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+
+//                    ReadWriteLock secondLock = new ReentrantZkReadWriteLock2(baseLockPath,zkSessionManager);
+                    Lock writeLock = rwLock.writeLock();
+                    logger.debug("Attempting to acquire write lock");
+                    writeLock.lock();
+                    logger.debug("Write lock acquired");
+                    try{
+                        latch.countDown();
+                    }finally{
+                        logger.debug("Attempting to unlock write lock");
+                        writeLock.unlock();
+                        logger.debug("unlock of write lock successful");
+                    }
+                    return null;
+                }
+            });
+
+            boolean notAcquired = !latch.await(250, TimeUnit.MILLISECONDS);
+            assertTrue("The write lock was improperly acquired!",notAcquired);
+
+        }finally{
+            logger.debug("Attempting to unlock read lock");
+            readLock.unlock();
+            logger.debug("unlock of read lock successful");
+        }
+
+        //check that the lock gets acquired correctly
+        final boolean acquired = latch.await(500, TimeUnit.SECONDS);
+        assertTrue("Write lock was never acquired!",acquired);
+        future.get();
+    }
+
+    @Test(timeout = 1000l)
+    public void testTryReadLockReturnsFalseIfNotAcquirable() throws Exception{
+        /*
+        Tests that tryLock will return false if the lock cannot be acquired
+        */
+
     }
 
     @Test(timeout = 1000l)
