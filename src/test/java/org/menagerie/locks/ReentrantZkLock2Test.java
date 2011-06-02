@@ -16,17 +16,20 @@
 package org.menagerie.locks;
 
 import org.apache.log4j.Logger;
-import org.apache.zookeeper.*;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.ZooDefs;
+import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.menagerie.BaseZkSessionManager;
+import org.menagerie.TestUtils;
 import org.menagerie.ZkSessionManager;
 import org.menagerie.ZkUtils;
 import org.menagerie.util.TestingThreadFactory;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,6 +39,7 @@ import java.util.concurrent.locks.Lock;
 import static junit.framework.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.menagerie.TestUtils.newZooKeeper;
 
 /**
  * Unit tests for ReentrantZkLock
@@ -59,7 +63,7 @@ public class ReentrantZkLock2Test {
 
     @Before
     public void setup() throws Exception {
-        zk = newZooKeeper();
+        zk = TestUtils.newZooKeeper(hostString, timeout);
 
         //be sure that the lock-place is created
         ZkUtils.recursiveSafeDelete(zk, baseLockPath, -1);
@@ -94,7 +98,7 @@ public class ReentrantZkLock2Test {
             testService.submit(new Runnable() {
                 @Override
                 public void run() {
-                    Lock secondLock = new ReentrantZkLock(baseLockPath, zkSessionManager);
+                    Lock secondLock = new ReentrantZkLock2(baseLockPath, zkSessionManager);
                     secondLock.lock();
                     try{
                         latch.countDown();
@@ -182,7 +186,7 @@ public class ReentrantZkLock2Test {
         Future<Void> errorFuture = testService.submit(new Callable<Void>() {
             @Override
             public Void call() throws Exception {
-                ZooKeeper newZk = newZooKeeper();
+                ZooKeeper newZk = TestUtils.newZooKeeper(hostString, timeout);
                 try {
                     final Lock sameLock = new ReentrantZkLock2(baseLockPath, new BaseZkSessionManager(newZk));
                     sameLock.lock();
@@ -253,7 +257,7 @@ public class ReentrantZkLock2Test {
             errorFuture = testService.submit(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-                    Lock secondLock = new ReentrantZkLock(baseLockPath, zkSessionManager);
+                    Lock secondLock = new ReentrantZkLock2(baseLockPath, zkSessionManager);
                     logger.debug("interruptible acquiring lock");
                     secondLock.lockInterruptibly();
                     logger.debug("acquired");
@@ -634,7 +638,7 @@ public class ReentrantZkLock2Test {
             @Override
             public Void call() throws Exception{
                 final Lock otherClientLock;
-                ZooKeeper newZk = newZooKeeper();
+                ZooKeeper newZk = newZooKeeper(hostString,timeout);
                 try {
                     otherClientLock = new ReentrantZkLock2(baseLockPath, new BaseZkSessionManager(newZk));
                     final Condition otherClientCondition = otherClientLock.newCondition();
@@ -690,7 +694,7 @@ public class ReentrantZkLock2Test {
                     startBarrier.await(); //make sure all threads are in the same place before starting
 
                     //create the lock that we're going to use
-                    ZooKeeper zk = newZooKeeper();
+                    ZooKeeper zk = newZooKeeper(hostString,timeout);
                     try{
                         Lock testLock = new ReentrantZkLock2(baseLockPath,new BaseZkSessionManager(zk));
                         for(int j=0;j<numIterations;j++){
@@ -723,7 +727,7 @@ public class ReentrantZkLock2Test {
         assertEquals("Number of Operations recorded was incorrect!",correctOps,operator.getValue());
     }
 
-    @Test(timeout = 10000l)
+    @Test(timeout = 20000l)
     public void testLockWorksUnderContentionSameClient() throws Exception{
         int numThreads = 5;
         final int numIterations = 100;
@@ -766,14 +770,7 @@ public class ReentrantZkLock2Test {
         assertEquals("Number of Operations recorded was incorrect!",correctOps,operator.getValue());
     }
 
-    private static ZooKeeper newZooKeeper() throws IOException {
-        return new ZooKeeper(hostString, timeout,new Watcher() {
-            @Override
-            public void process(WatchedEvent event) {
-//                System.out.println(event);
-            }
-        });
-    }
+
 
 
 }

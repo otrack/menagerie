@@ -147,6 +147,23 @@ public class ZkUtils {
         }
     }
 
+    public static boolean uninterruptibleSafeDelete(ZooKeeper zk, String nodeToDelete,int version) throws KeeperException{
+       try {
+            zk.delete(nodeToDelete,version);
+            return true;
+        } catch (KeeperException ke) {
+            //if the node has already been deleted, don't worry about it
+            if(ke.code()!=KeeperException.Code.NONODE)
+                throw ke;
+            else
+                return false;
+        } catch (InterruptedException e) {
+           Thread.currentThread().interrupt();
+           return false;
+       }
+    }
+
+
     /**
      * Deletes all the listed elements from ZooKeeper safely.
      * <p>
@@ -168,7 +185,7 @@ public class ZkUtils {
         }
     }
 
-     /**
+    /**
      * Deletes all the listed elements from ZooKeeper safely.
      * <p>
      * If any element has already been deleted from ZooKeeper, then a NoNode Exception is normally thrown by ZooKeeper.
@@ -182,19 +199,19 @@ public class ZkUtils {
      * @param version the version of the nodes to remove
      * @throws KeeperException if some issue with the ZooKeeper server which is <i>not</i> of type NoNode occurs.
      * @throws InterruptedException if some communication error happens between the ZooKeeper client and server
-      */
-     public static void recursiveSafeDelete(ZooKeeper zk, String nodeToDelete, int version) throws KeeperException, InterruptedException{
-         try{
-             List<String> children = zk.getChildren(nodeToDelete,false);
-             for(String child: children){
-                 recursiveSafeDelete(zk,nodeToDelete+"/"+child,version);
-             }
-             //delete this node
-             safeDelete(zk,nodeToDelete,version);
-         }catch(KeeperException ke){
-             if(ke.code()!=KeeperException.Code.NONODE)
-                 throw ke;
-         }
+     */
+    public static void recursiveSafeDelete(ZooKeeper zk, String nodeToDelete, int version) throws KeeperException, InterruptedException{
+        try{
+            List<String> children = zk.getChildren(nodeToDelete,false);
+            for(String child: children){
+                recursiveSafeDelete(zk,nodeToDelete+"/"+child,version);
+            }
+            //delete this node
+            safeDelete(zk,nodeToDelete,version);
+        }catch(KeeperException ke){
+            if(ke.code()!=KeeperException.Code.NONODE)
+                throw ke;
+        }
     }
 
     /**

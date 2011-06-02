@@ -1,6 +1,9 @@
 package org.menagerie.locks;
 
-import org.apache.zookeeper.*;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.ZooDefs;
+import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.menagerie.*;
@@ -9,11 +12,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Will eventually replace the ReentrantZkLock when I'm sure it's good enough.
@@ -23,14 +23,13 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 @Beta
 public class ReentrantZkLock2 implements Lock {
+//    private static final Logger logger = Logger.getLogger(ReentrantZkLock2.class);
     private final Sync sync;
     private static final byte[] emptyBytes = new byte[]{};
     private final ZkCommandExecutor executor;
-    private final Lock localLock;
     private final String machineId;
     private final List<ACL> privileges;
     private final String baseNode;
-    private final Condition condition;
 
     private final LockHolder holder = new LockHolder();
 
@@ -47,8 +46,6 @@ public class ReentrantZkLock2 implements Lock {
         this.executor = executor;
         this.privileges = privileges;
         this.baseNode = baseNode;
-        localLock = new ReentrantLock(true); 
-        condition = localLock.newCondition();
         try{
             machineId = InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
@@ -63,7 +60,8 @@ public class ReentrantZkLock2 implements Lock {
     public void lock() {
         if(holder.increment())return; //we have successful reentrancy
         try{
-            holder.setHoldingThread(sync.acquire());
+            String lockNode = sync.acquire();
+            holder.setHoldingThread(lockNode);
         } catch (KeeperException e) {
             throw new RuntimeException(e);
         }
@@ -116,6 +114,7 @@ public class ReentrantZkLock2 implements Lock {
         if(remaining==0){
             try {
                 sync.release();
+                holder.clear();
             } catch (KeeperException e) {
                 throw new RuntimeException(e);
             }
@@ -158,43 +157,6 @@ public class ReentrantZkLock2 implements Lock {
         }
     }
 
-
-    private class LockHolder{
-        private final AtomicReference<Thread> holdingThread = new AtomicReference<Thread>();
-        private volatile String lockNode;
-        private final AtomicInteger holdCount = new AtomicInteger(0);
-
-        public void setHoldingThread(String lockNode){
-            holdingThread.set(Thread.currentThread());
-            holdCount.set(1);
-            this.lockNode = lockNode;
-        }
-
-        public boolean increment(){
-            if(Thread.currentThread().equals(holdingThread.get())){
-                holdCount.incrementAndGet();
-                return true;
-            }else{
-                return false;
-            }
-        }
-        public int decrement(){
-            if(Thread.currentThread().equals(holdingThread.get())){
-                int count = holdCount.decrementAndGet();
-                if(count<=0){
-                    holdingThread.set(null);
-                }
-                return count;
-            }else{
-                return holdCount.get();
-            }
-        }
-
-        public String getLockNode(){
-            return lockNode;
-        }
-    }
-
     private class Sync extends ZkQueuedSynchronizer{
         /**
          * Creates a new ZkPrimitive with the correct node information.
@@ -229,11 +191,11 @@ public class ReentrantZkLock2 implements Lock {
             int nextNodePos = myPos-1;
             while(nextNodePos>=0){
                 Stat stat;
-                if(watch)
+                if(watch){
                     stat=zk.exists(baseNode+"/"+locks.get(nextNodePos),signalWatcher);
-                else
+                }else{
                     stat=zk.exists(baseNode+"/"+locks.get(nextNodePos),false);
-                if(stat!=null){
+                }if(stat!=null){
                     //there is a node which already has the lock, so we need to wait for notification that that
                     //node is gone
                     return false;
@@ -275,7 +237,8 @@ public class ReentrantZkLock2 implements Lock {
         @Override
         protected boolean tryReleaseDistributed(ZooKeeper zk) throws KeeperException{
             try {
-                return holder.getLockNode() == null || ZkUtils.safeDelete(zk, holder.getLockNode(), -1);
+                String lockNode = holder.getLockNode();
+                return lockNode == null || ZkUtils.safeDelete(zk, lockNode, -1);
             }catch (InterruptedException e) {
                 return false;
             }

@@ -66,6 +66,40 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
         final String node = commandExecutor.execute(new ZkCommand<String>() {
             @Override
             public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                logger.trace("Creating node");
+                return createNode(zk);
+            }
+        });
+        commandExecutor.execute(new ZkCommand<Void>() {
+            @Override
+            public Void execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+
+                while(true){
+                    logger.trace("Acquiring local lock");
+                    localLock.lock();
+                    try{
+                        logger.trace("Attempting distributed acquisition");
+                        boolean acquired = tryAcquireDistributed(zk,node,true);
+                        if(!acquired){
+                            logger.trace("Distributed acquisition unsuccessful, waiting for notification");
+                            condition.awaitUninterruptibly();
+                        }else{
+                            logger.trace("Distributed acquisition successful");
+                            return null;
+                        }
+                    }finally{
+                        localLock.unlock();
+                    }
+                }
+            }
+        });
+        return node;
+    }
+
+    public final String acquireShared() throws KeeperException{
+        final String node = commandExecutor.execute(new ZkCommand<String>() {
+            @Override
+            public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
                 return createNode(zk);
             }
         });
@@ -75,7 +109,7 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
                 while(true){
                     localLock.lock();
                     try{
-                        boolean acquired = tryAcquireDistributed(zk,node,true);
+                        boolean acquired = tryAcquireSharedDistributed(zk,node,true);
                         if(!acquired){
                             condition.awaitUninterruptibly();
                         }else{
@@ -137,6 +171,36 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
         return node;
     }
 
+    public final String acquireSharedInterruptibly() throws InterruptedException, KeeperException {
+        final String node = commandExecutor.executeInterruptibly(new ZkCommand<String>() {
+            @Override
+            public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                return createNode(zk);
+            }
+        });
+        commandExecutor.executeInterruptibly(new ZkCommand<Void>() {
+            @Override
+            public Void execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                boolean acquired=false;
+                while (!acquired) {
+                    logger.trace("Attempting to acquire interruptibly");
+                    localLock.lock();
+                    try {
+                        acquired = tryAcquireSharedDistributedInterruptibly(zk,node, true);
+                        if (!acquired) {
+                            condition.await();
+                        }
+                    } finally {
+                        localLock.unlock();
+                    }
+                }
+                logger.trace("Acquired interruptibly");
+                return null;
+            }
+        });
+        return node;
+    }
+
     /**
      * Attempts to acquire in exclusive mode. This method will query ZooKeeper to see if
      * acquisition is allowed to succeed by calling
@@ -163,6 +227,27 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
             @Override
             public Boolean execute(ZooKeeper zk) throws KeeperException, InterruptedException {
                 return tryAcquireDistributed(zk, node, false);
+            }
+        });
+        if(!acquired){
+            cleanupAfterFailure(node);
+            return null;
+        }
+
+        return node;
+    }
+
+    public final String tryAcquireShared() throws KeeperException{
+        final String node = commandExecutor.execute(new ZkCommand<String>() {
+            @Override
+            public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                return createNode(zk);
+            }
+        });
+        boolean acquired = commandExecutor.execute(new ZkCommand<Boolean>() {
+            @Override
+            public Boolean execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                return tryAcquireSharedDistributed(zk, node, false);
             }
         });
         if(!acquired){
@@ -264,6 +349,79 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
         return node;
     }
 
+    public final String tryAcquireSharedNanos(long timeoutNanos) throws KeeperException,InterruptedException{
+        if(Thread.currentThread().isInterrupted())
+            throw new InterruptedException();
+        long timeout = timeoutNanos;
+
+        long start = System.nanoTime();
+        final String node = commandExecutor.executeInterruptibly(new ZkCommand<String>() {
+            @Override
+            public String execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                if (Thread.currentThread().isInterrupted())
+                    throw new InterruptedException();
+
+                return createNode(zk);
+            }
+        });
+        long end = System.nanoTime();
+        if(Thread.currentThread().isInterrupted()){
+            logger.trace("Thread has been interrupted, aborting attempt");
+            cleanupAfterFailure(node);
+            throw new InterruptedException();
+        }
+        timeout-=(end-start);
+        if(timeout<0){
+            logger.trace("Timeout has happened before acquisition occurred; aborting attempt");
+            cleanupAfterFailure(node);
+            return null;
+        }
+        while(timeout>0){
+            if(Thread.currentThread().isInterrupted())
+                throw new InterruptedException();
+            start = System.nanoTime();
+            boolean localAcquired = localLock.tryLock(timeout, TimeUnit.NANOSECONDS);
+            end = System.nanoTime();
+            timeout-=(end-start);
+            if(!localAcquired||timeout<0){
+                logger.trace("Local lock not acquired within the specified timeout, aborting attempt");
+                cleanupAfterFailure(node);
+                return null;
+            }
+            try{
+                start = System.nanoTime();
+                boolean acquired = commandExecutor.execute(new ZkCommand<Boolean>() {
+                    @Override
+                    public Boolean execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                        if(Thread.currentThread().isInterrupted())
+                            throw new InterruptedException();
+
+                        return tryAcquireSharedDistributed(zk, node, true);
+                    }
+                });
+                end=System.nanoTime();
+                timeout-=(end-start);
+                if(timeout<0){
+                    cleanupAfterFailure(node);
+                    return null;
+                }else if(!acquired){
+                    timeout = condition.awaitNanos(timeout);
+                }else{
+                    return node;
+                }
+            }finally{
+                localLock.unlock();
+            }
+        }
+        if(timeout<0){
+            logger.trace("Timeout occurred before acquisition could occur; Aborting attempt");
+            cleanupAfterFailure(node);
+            return null;
+        }
+        logger.trace("Attempt successful!");
+        return node;
+    }
+
 
     /**
      * Releases in exclusive mode. Implemented by calling at least once
@@ -277,6 +435,16 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
             @Override
             public Void execute(ZooKeeper zk) throws KeeperException, InterruptedException {
                 tryReleaseDistributed(zk);
+                return null;
+            }
+        });
+    }
+
+    public final void releaseShared() throws KeeperException{
+        commandExecutor.execute(new ZkCommand<Void>() {
+            @Override
+            public Void execute(ZooKeeper zk) throws KeeperException, InterruptedException {
+                tryReleaseSharedDistributed(zk);
                 return null;
             }
         });
@@ -348,11 +516,16 @@ public abstract class ZkQueuedSynchronizer extends ZkPrimitive2{
 
 
 
-    protected boolean tryAcquireSharedDistributed(){
+    protected boolean tryAcquireSharedDistributed(ZooKeeper zk,String path, boolean watch) throws KeeperException {
         throw new UnsupportedOperationException();
     }
 
-    protected boolean tryReleaseSharedDistributed(){
+    protected boolean tryAcquireSharedDistributedInterruptibly(ZooKeeper zk,String path, boolean watch) throws KeeperException,InterruptedException{
+        throw new UnsupportedOperationException();
+    }
+
+
+    protected boolean tryReleaseSharedDistributed(ZooKeeper zk)throws KeeperException{
         throw new UnsupportedOperationException();
     }
 
