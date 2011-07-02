@@ -27,7 +27,7 @@ import java.util.concurrent.locks.ReadWriteLock;
  *         Date: 5/27/11
  *         Time: 2:42 PM
  */
-public class ReentrantZkReadWriteLock2 implements ReadWriteLock {
+class ReentrantZkReadWriteLock2 implements ReadWriteLock {
     private static final Logger logger = Logger.getLogger(ReentrantZkReadWriteLock2.class);
     private ReadWriteLockHolder lockHolder = new ReadWriteLockHolder();
     private final String machineId;

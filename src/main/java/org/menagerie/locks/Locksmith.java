@@ -8,9 +8,13 @@ import org.menagerie.ZkSessionManager;
 
 import java.util.List;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 
 /**
- * TODO: Add documentation describing that this is the appropriate manner to create a lock
+ * Static factories for creating and using ZooKeeper-based Locks.
+ *
+ * <p>These methods wrap public constructors in specific classes, but
+ * using those constructors is <em>not</em> recommended.
  */
 @Beta
 public class Locksmith {
@@ -26,6 +30,21 @@ public class Locksmith {
     public static final Lock reentrantLock(ZkSessionManager sessionManager, String lockPath, List<ACL> privileges){
         return new ReentrantZkLock2(lockPath, sessionManager, privileges);
     }
+
+
+    public static final ReadWriteLock readWriteLock(ZkSessionManager sessionManager,String lockPath,List<ACL> privileges){
+        return new ReentrantZkReadWriteLock2(lockPath,sessionManager,privileges);
+    }
+
+    public static final ReadWriteLock readWriteLock(ZkSessionManager sessionManager,String lockPath){
+        return new ReentrantZkReadWriteLock2(lockPath,sessionManager);
+    }
+
+    public static final ReadWriteLock readWriteLock(ZkCommandExecutor commandExecutor,String lockPath,List<ACL> privileges){
+        return new ReentrantZkReadWriteLock2(lockPath,commandExecutor,privileges);
+    }
+
+
 
 
 }

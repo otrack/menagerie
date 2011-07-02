@@ -21,8 +21,7 @@ import java.util.concurrent.locks.Lock;
  *         Date: Apr 25, 2011
  *         Time: 4:12:06 PM
  */
-@Beta
-public class ReentrantZkLock2 implements Lock {
+class ReentrantZkLock2 implements Lock {
 //    private static final Logger logger = Logger.getLogger(ReentrantZkLock2.class);
     private final Sync sync;
     private static final byte[] emptyBytes = new byte[]{};

@@ -48,7 +48,7 @@ import java.util.concurrent.locks.Lock;
  * @author Scott Fines
  * @version 1.0
  * @see java.util.concurrent.locks.ReentrantLock
- * @deprecated Use ReentrantZKLock2 instead
+ * @deprecated Use {@link Locksmith.reentrantLock} factories to create a different (internal) lock instance instead.
  */
 @Deprecated
 public class ReentrantZkLock extends ZkPrimitive implements Lock {

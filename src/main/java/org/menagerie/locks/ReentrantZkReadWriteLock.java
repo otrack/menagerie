@@ -67,7 +67,7 @@ import java.util.concurrent.locks.ReadWriteLock;
  * @author Scott Fines
  * @version 1.0
  * @see java.util.concurrent.locks.ReentrantReadWriteLock
- * @deprecated Use something else. This was a bad idea.
+ * @deprecated Use {@link Locksmith} factories to create a different (internal) lock instance instead.
  */
 @Deprecated
 public final class ReentrantZkReadWriteLock implements ReadWriteLock {
