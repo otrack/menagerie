@@ -18,15 +18,45 @@ import java.util.concurrent.locks.ReadWriteLock;
  */
 @Beta
 public class Locksmith {
-
+    /**
+     * Creates a new reentrant lock instance.
+     *
+     * <p>The returned lock will satisfy the {@link java.util.concurrent.locks.Lock} specification,
+     * including all optional methods.
+     *
+     * @param sessionManager a ZooKeeper Session manager
+     * @param lockPath the lock path
+     * @return a ZooKeeper lock
+     */
     public static final Lock reentrantLock(ZkSessionManager sessionManager, String lockPath) {
         return new ReentrantZkLock2(lockPath, sessionManager, ZooDefs.Ids.OPEN_ACL_UNSAFE);
     }
 
-    public static final Lock reentrantLock( String lockPath, List<ACL> privileges, ZkCommandExecutor exec){
+    /**
+     * Creates a new reentrant lock instance.
+     *
+     * <p>The returned lock will satisfy the {@link java.util.concurrent.locks.Lock} specification,
+     * including all optional methods.
+     *
+     * @param exec a ZkCommandExecutor
+     * @param lockPath the lock path
+     * @return a ZooKeeper lock
+     */
+    public static final Lock reentrantLock( String lockPath, ZkCommandExecutor exec,List<ACL> privileges){
         return new ReentrantZkLock2(lockPath, exec, privileges);
     }
 
+    /**
+     * Creates a new reentrant lock instance.
+     *
+     * <p>The returned lock will satisfy the {@link java.util.concurrent.locks.Lock} specification,
+     * including all optional methods.
+     *
+     * @param sessionManager the session manager of interest
+     * @param lockPath the lock path
+     * @param privileges the privileges for the lock node
+     * @return a ZooKeeper lock
+     */
     public static final Lock reentrantLock(ZkSessionManager sessionManager, String lockPath, List<ACL> privileges){
         return new ReentrantZkLock2(lockPath, sessionManager, privileges);
     }
