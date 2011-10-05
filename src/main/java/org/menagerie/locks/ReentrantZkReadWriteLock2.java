@@ -245,7 +245,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
 
                 logger.trace("No previous node exists, creating a new one");
                 //nobody exists with my party's unique name, so create one and return it
-                return completeNode = doCreateNode(zk);
+                completeNode = doCreateNode(zk);
             } catch (InterruptedException e) {
                 //restore the interrupt status
                 Thread.currentThread().interrupt();
@@ -270,7 +270,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
             String myLockId = getPartyId();
             for (String lockChild : lockChildren) {
                 if (lockChild.startsWith(myLockId)) {
-                    return lockChild;
+                    return baseNode+"/"+lockChild;
                 }
             }
             return null;
@@ -477,6 +477,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
         public void setReadingThread(String lockNode){
             readCount.set(1);
             readNode = lockNode;
+            logger.trace("lockNode="+lockNode);
         }
 
         public void setWritingThread(String lockNode){

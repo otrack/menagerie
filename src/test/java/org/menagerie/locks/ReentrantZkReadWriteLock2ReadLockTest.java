@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 
+import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.menagerie.TestUtils.newZooKeeper;
 
@@ -63,6 +64,26 @@ public class ReentrantZkReadWriteLock2ReadLockTest {
         }finally{
             zk.close();
         }
+    }
+
+    @Test(timeout = 1000l)
+    public void testReadLockAcquiresThenReleases() throws Exception {
+         /*
+         Tests that a read lock creates a node in ZooKeeper, and that releasing it
+         removes that node from ZooKeeper
+         */
+        ReadWriteLock rwLock = new ReentrantZkReadWriteLock2(baseLockPath, zkSessionManager);
+        Lock readLock = rwLock.readLock();
+        readLock.lock();
+        try{
+            //check the lock path to see if there is a node there
+            assertEquals("A Read lock node was not created!",1,ZkUtils.filterByPrefix(zkSessionManager.getZooKeeper().getChildren(baseLockPath,false),"readLock").size());
+        }finally{
+            readLock.unlock();
+        }
+
+        //check that that node was properly deleted
+        assertEquals("A Read lock node was not deleted!",0,ZkUtils.filterByPrefix(zkSessionManager.getZooKeeper().getChildren(baseLockPath,false),"readLock").size());
     }
 
     @Test(timeout = 1000l)

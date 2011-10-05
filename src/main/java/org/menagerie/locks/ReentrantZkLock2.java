@@ -227,7 +227,7 @@ class ReentrantZkLock2 implements Lock {
             String myLockId = getPartyId();
             for (String lockChild : lockChildren) {
                 if (lockChild.startsWith(myLockId)) {
-                    return lockChild;
+                    return baseNode+'/'+lockChild;
                 }
             }
             return null;
