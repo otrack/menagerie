@@ -156,6 +156,7 @@ public class DefaultZkSessionManager implements ZkSessionManager{
 
     @Override
     public synchronized void closeSession() {
+				logger.info("Closing ZkSessionManager");
         try{
             if(zk!=null){
                 try {

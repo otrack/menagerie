@@ -90,6 +90,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
         public void lock() {
             if(lockHolder.readIncrement())return;
             try{
+								logger.trace("readIncrement=false, creating");
                 lockHolder.setReadingThread(sync.acquireShared());
             } catch (KeeperException e) {
                 throw new RuntimeException(e);
@@ -223,7 +224,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
             if(remaining<=0){
                 try{
                     sync.releaseShared();
-                    lockHolder.readClear();
+                    //lockHolder.readClear();
                 } catch (KeeperException e) {
                     throw new RuntimeException(e);
                 }
@@ -442,6 +443,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
                     return false;
                 }
             }
+						logger.trace("Successfully acquired write lock "+path);
             return true;
         }
 
@@ -470,7 +472,8 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
 
         public boolean readIncrement(){
             if(readNode!=null){
-                readCount.incrementAndGet();
+                int count = readCount.incrementAndGet();
+								logger.trace("number of read locks acquired="+count);
                 return true;
             }else{
                 return false;
@@ -478,21 +481,26 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
         }
 
         public boolean writeIncrement(){
-            return writeLockHolder.increment();
+						//logged by LockHolder
+           return writeLockHolder.increment();
         }
 
         public int readDecrement(){
-            return readCount.decrementAndGet();
+            int count =readCount.decrementAndGet();
+						logger.trace("Decrementing read to value "+ count);
+						return count;
         }
 
         public int writeDecrement(){
-            return writeLockHolder.decrement();
+            int count= writeLockHolder.decrement();
+						logger.trace("Decrementing write to value "+ count);
+						return count;
         }
 
         public void setReadingThread(String lockNode){
             readCount.set(1);
             readNode = lockNode;
-            logger.trace("lockNode="+lockNode);
+            logger.trace("lockNode= "+lockNode+", readCount=1");
         }
 
         public void setWritingThread(String lockNode){
@@ -509,6 +517,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
         }
 
         public void readClear() {
+						logger.trace("Clearing read lock data");
             readCount.set(0);
             readNode=null;
         }

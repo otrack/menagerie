@@ -18,12 +18,14 @@ package org.menagerie.locks;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.log4j.Logger;
 /**
  * @author Scott Fines
  *         Date: 5/27/11
  *         Time: 2:46 PM
  */
 final class LockHolder{
+		private static final Logger LOGGER = Logger.getLogger(LockHolder.class);
     private final AtomicReference<Thread> holdingThread = new AtomicReference<Thread>();
     private volatile String lockNode;
     private final AtomicInteger holdCount = new AtomicInteger(0);
@@ -31,12 +33,14 @@ final class LockHolder{
     public void setHoldingThread(String lockNode){
         holdingThread.set(Thread.currentThread());
         holdCount.set(1);
+				LOGGER.trace("Set holding thread value to 1");
         this.lockNode = lockNode;
     }
 
     boolean increment(){
         if(Thread.currentThread().equals(holdingThread.get())){
-            holdCount.incrementAndGet();
+            int count =holdCount.incrementAndGet();
+						LOGGER.trace("Incrementing lockHolder value to "+ count);
             return true;
         }else{
             return false;
