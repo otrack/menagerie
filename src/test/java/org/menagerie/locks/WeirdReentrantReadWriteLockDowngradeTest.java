@@ -26,7 +26,7 @@ public class WeirdReentrantReadWriteLockDowngradeTest {
 
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
-		sessionManager = new DefaultZkSessionManager("10.27.2.184:2181,10.27.2.185:2181,10.27.2.240:2181", 5000);
+		sessionManager = new DefaultZkSessionManager("localhost:2181", 5000);
 	}
 
 	@AfterClass
@@ -37,7 +37,7 @@ public class WeirdReentrantReadWriteLockDowngradeTest {
 	@Before
 	public void setUp() throws Exception {
 		workflowThreadCompleted = new AtomicBoolean(false);
-		nodeLock = Locksmith.readWriteLock(sessionManager, "/multi_domain_reports/qa/TestReport/2012-01-09-06-00-00-2012-01-10-06-00-00");
+		nodeLock = Locksmith.readWriteLock(sessionManager, "/testReadWriteLock");
 	}
 
 	@Test(timeout = 1000l)

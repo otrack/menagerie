@@ -224,6 +224,7 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
             if(remaining<=0){
                 try{
                     sync.releaseShared();
+										lockHolder.writeClear();
                     //lockHolder.readClear();
                 } catch (KeeperException e) {
                     throw new RuntimeException(e);
