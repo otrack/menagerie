@@ -31,6 +31,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
@@ -354,9 +355,11 @@ class ReentrantZkReadWriteLock2 implements ReadWriteLock {
 
             List<String> aheadWriteLocks = ZkUtils.filterByPrefix(zk.getChildren(baseNode,false),"writeLock");
             //filter out the writeLocks that came around after we created an element
-            for(String writeLock:aheadWriteLocks){
+						Iterator<String> aheadIter = aheadWriteLocks.iterator();
+            while(aheadIter.hasNext()){
+								String writeLock = aheadIter.next();
                 if(ZkUtils.parseSequenceNumber(writeLock,'-')>mySeqNumber){
-                    aheadWriteLocks.remove(writeLock);
+										aheadIter.remove();
                 }
             }
 
