@@ -15,10 +15,10 @@
  */
 package org.menagerie.locks;
 
+import org.apache.log4j.Logger;
+
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.apache.log4j.Logger;
 /**
  * @author Scott Fines
  *         Date: 5/27/11
@@ -31,10 +31,12 @@ final class LockHolder{
     private final AtomicInteger holdCount = new AtomicInteger(0);
 
     public void setHoldingThread(String lockNode){
+			LOGGER.trace("Set holding thread value");
+			synchronized(this){
         holdingThread.set(Thread.currentThread());
         holdCount.set(1);
-				LOGGER.trace("Set holding thread value to 1");
-        this.lockNode = lockNode;
+      	this.lockNode = lockNode;
+			}
     }
 
     boolean increment(){
@@ -67,7 +69,11 @@ final class LockHolder{
     }
 
     void clear(){
-        holdingThread.set(null);
-        holdCount.set(0);
+			synchronized(this){
+				if(Thread.currentThread().equals(holdingThread.get())){
+	        holdingThread.set(null);
+	        holdCount.set(0);
+				}
+			}
     }
 }
