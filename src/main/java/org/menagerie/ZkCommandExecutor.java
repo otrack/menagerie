@@ -39,6 +39,10 @@ public class ZkCommandExecutor extends BaseZkCommandExecutor implements IZkComma
     public ZkCommandExecutor(ZkSessionManager sessionManager,int maxRetries) {
         super(sessionManager,maxRetries,DEFAULT_DELAY_MILLIS,TimeUnit.MILLISECONDS);
     }
+	
+	public ZkCommandExecutor(ZkSessionManager sessionManager, int maxRetries,long delayMillis, TimeUnit retryUnit){
+        super(sessionManager,maxRetries,delayMillis, retryUnit);
+    }
 
     public <T> T execute(ZkCommand<T> command) throws KeeperException {
         KeeperException exception = null;
