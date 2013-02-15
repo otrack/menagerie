@@ -1,18 +1,3 @@
-/*
- * Copyright 2011 Scott Fines
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
 package org.menagerie;
 
 import org.apache.log4j.Logger;
@@ -21,22 +6,25 @@ import org.apache.zookeeper.KeeperException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * @author Scott Fines
- *         Date: Apr 25, 2011
- *         Time: 1:55:52 PM
+ * This class allows for automatic recovery of session expiration when calling execute.  Note that this class should
+ * never be used when using ephemeral nodes.  If the session expires the data in the ephemeral nodes would disappear
+ * and we would be none the wiser.
+ * User: ASchmucker
+ * Date: 2/14/13
+ * Time: 4:42 PM
  */
-public class ZkCommandExecutor extends BaseZkCommandExecutor implements IZkCommandExecutor {
-    private static final Logger logger = Logger.getLogger(ZkCommandExecutor.class);
+public class SessionRecoverableZKCommandExecutor extends BaseZkCommandExecutor implements IZkCommandExecutor {
+    private static final Logger logger = Logger.getLogger(SessionRecoverableZKCommandExecutor.class);
 
-    public ZkCommandExecutor(ZkSessionManager sessionManager) {
-        super(sessionManager,DEFAULT_MAX_RETRIES,DEFAULT_DELAY_MILLIS,TimeUnit.MILLISECONDS);
+    public SessionRecoverableZKCommandExecutor(ZkSessionManager sessionManager) {
+        super(sessionManager,DEFAULT_MAX_RETRIES,DEFAULT_DELAY_MILLIS, TimeUnit.MILLISECONDS);
     }
 
-    public ZkCommandExecutor(ZkSessionManager sessionManager,long retryDelay,TimeUnit retryUnits) {
+    public SessionRecoverableZKCommandExecutor(ZkSessionManager sessionManager,long retryDelay,TimeUnit retryUnits) {
         super(sessionManager,DEFAULT_MAX_RETRIES,retryDelay,retryUnits);
     }
 
-    public ZkCommandExecutor(ZkSessionManager sessionManager,int maxRetries) {
+    public SessionRecoverableZKCommandExecutor(ZkSessionManager sessionManager,int maxRetries) {
         super(sessionManager,maxRetries,DEFAULT_DELAY_MILLIS,TimeUnit.MILLISECONDS);
     }
 
@@ -58,8 +46,8 @@ public class ZkCommandExecutor extends BaseZkCommandExecutor implements IZkComma
                 if(exception==null){
                     exception = kse;
                 }
-                logger.info("Session expired while command "+ command +"was attempted. Retrying with new session");
-                throw kse;
+                logger.debug("Session expired while command "+ command +"was attempted. Retrying with new session");
+                doWait(retry, delayMillis);
             }
         }
         if(exception==null){

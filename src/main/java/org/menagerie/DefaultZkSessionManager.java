@@ -15,15 +15,8 @@
  */
 package org.menagerie;
 
-
-import org.apache.zookeeper.AsyncCallback;
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.ZooKeeper;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.apache.log4j.Logger;
+import org.apache.zookeeper.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,8 +35,9 @@ import java.util.concurrent.Executors;
  * @author Scott Fines
  * @version 1.0
  */
+
 public class DefaultZkSessionManager implements ZkSessionManager{
-    private static final Logger logger = LoggerFactory.getLogger(DefaultZkSessionManager.class);
+    private static final Logger logger = Logger.getLogger(DefaultZkSessionManager.class);
     //this could potentially be a very write-heavy list, so a synchronized list will perform better
     //than a more traditional CopyOnWriteArrayList would be
     private List<ConnectionListener> listeners = Collections.synchronizedList(new ArrayList<ConnectionListener>());
@@ -56,6 +50,12 @@ public class DefaultZkSessionManager implements ZkSessionManager{
     private ZkSessionPoller poller;
     private final int zkSessionPollInterval;
 
+    private static final int DEFAULT_MAX_CONNECTION_WAIT_TIME_MILLIS = 30000;
+    public  static final int CONNECTED_CHECK_DELAY_MILLIS = 10;
+
+    private final int maxConnectionWaitTime;
+    private final int connectedCheckDelay;
+
     /**
      * Creates a new instance of a DefaultZkSessionManager.
      *
@@ -65,7 +65,7 @@ public class DefaultZkSessionManager implements ZkSessionManager{
      * @param timeout the timeout to use before expiring the ZooKeeper session.
      */
     public DefaultZkSessionManager(String connectionString, int timeout) {
-        this(connectionString,timeout,Executors.newSingleThreadExecutor(),-1);
+        this(connectionString,timeout,Executors.newSingleThreadExecutor(),-1, DEFAULT_MAX_CONNECTION_WAIT_TIME_MILLIS, CONNECTED_CHECK_DELAY_MILLIS);
     }
 
     /**
@@ -80,7 +80,7 @@ public class DefaultZkSessionManager implements ZkSessionManager{
      *          manual session checking is to be used
      */
     public DefaultZkSessionManager(String connectionString, int timeout, int zkSessionPollInterval){
-        this(connectionString,timeout,Executors.newSingleThreadExecutor(),zkSessionPollInterval);
+        this(connectionString,timeout,Executors.newSingleThreadExecutor(),zkSessionPollInterval, DEFAULT_MAX_CONNECTION_WAIT_TIME_MILLIS, CONNECTED_CHECK_DELAY_MILLIS);
     }
 
     /**
@@ -95,7 +95,7 @@ public class DefaultZkSessionManager implements ZkSessionManager{
      * @param executor the executor to use in constructing calling threads.
      */
     public DefaultZkSessionManager(String connectionString, int timeout,ExecutorService executor) {
-        this(connectionString,timeout,executor,-1);
+        this(connectionString,timeout,executor,-1, DEFAULT_MAX_CONNECTION_WAIT_TIME_MILLIS, CONNECTED_CHECK_DELAY_MILLIS);
     }
 
     /**
@@ -111,11 +111,13 @@ public class DefaultZkSessionManager implements ZkSessionManager{
      * @param zkSessionPollInterval the polling interval to use for manual session checking, or -1 if no
      *          manual session checking is to be used
      */
-    public DefaultZkSessionManager(String connectionString, int timeout, ExecutorService executor, int zkSessionPollInterval){
+    public DefaultZkSessionManager(String connectionString, int timeout, ExecutorService executor, int zkSessionPollInterval, int maxConnectionWaitTime, int connectedCheckDelay) {
         this.connectionString = connectionString;
         this.timeout = timeout;
         this.executor = executor;
         this.zkSessionPollInterval = zkSessionPollInterval;
+        this.maxConnectionWaitTime = maxConnectionWaitTime;
+        this.connectedCheckDelay = connectedCheckDelay;
     }
 
 
@@ -124,39 +126,106 @@ public class DefaultZkSessionManager implements ZkSessionManager{
         if(shutdown)
             throw new IllegalStateException("Cannot request a ZooKeeper after the session has been closed!");
         if(zk==null || zk.getState()==ZooKeeper.States.CLOSED){
-            try {
-                zk = new ZooKeeper(connectionString,timeout,new SessionWatcher(this));
-            } catch (IOException e) {
-                logger.error("IOException gettingZookeeper Instance", e);
-                throw new RuntimeException(e);
-            }
-            if(zkSessionPollInterval>0){
-                //stop any previous polling, if it hasn't been stopped already
-                if(poller!=null){
-                    poller.stopPolling();
+            if(logger.isDebugEnabled()) {
+                if(zk == null) {
+                    logger.debug("Found NULL ZK state.");
+                } else {
+                    logger.debug("Found CLOSED ZK state.");
                 }
-                //create a new poller for this ZooKeeper instance
-                poller = new ZkSessionPoller(zk,zkSessionPollInterval,new SessionPollListener(zk,this));
-                poller.startPolling();
             }
+
+            zk = getNewZookeeperInstance();
         }else{
-            //make sure that your zookeeper instance is synced
-            zk.sync("/",new AsyncCallback.VoidCallback() {
-                @Override
-                public void processResult(int rc, String path, Object ctx) {
+            // Before calling zk.sync we must ensure ZK is fully connected.
+            // If it is in a CONNECTING state and not a CONNECTED state
+            // we must wait before sync otherwise problems will occur.
+            logger.debug("Preparing to sync a ZK Instance");
+            try {
+                ensureConnectionEstablishedBeforeProceeding();
+
+                //make sure that your zookeeper instance is synced
+                zk.sync("/",new AsyncCallback.VoidCallback() {
+                    @Override
+                    public void processResult(int rc, String path, Object ctx) {
 //                    latch.countDown();
-                    //do nothing, we're good
-                }
-            }, this);
+                        //do nothing, we're good
+                    }
+                }, this);
+            } catch (KeeperException.SystemErrorException e) {
+                zk = getNewZookeeperInstance();
+            }
         }
         return zk;
     }
 
+    private ZooKeeper getNewZookeeperInstance() {
+        try {
+            zk = new ZooKeeper(connectionString,timeout,new SessionWatcher(this));
+            // Before returning ZK we must ensure it is fully connected.
+            // If it is in a CONNECTING state and not a CONNECTED state
+            // we must wait until it is finally connected to prevent issues.
+            logger.debug("Preparing to check the state of a newly established ZK connection");
+            try {
+                ensureConnectionEstablishedBeforeProceeding();
+            } catch (KeeperException.SystemErrorException e) {
+                throw new RuntimeException("Unable to establish a ZK connection in the time allotted");
+            }
+        } catch (IOException e) {
+            logger.error("IOException gettingZookeeper Instance", e);
+            throw new RuntimeException(e);
+        }
 
+        if(zkSessionPollInterval>0){
+            //stop any previous polling, if it hasn't been stopped already
+            if(poller!=null){
+                poller.stopPolling();
+            }
+            //create a new poller for this ZooKeeper instance
+            poller = new ZkSessionPoller(zk,zkSessionPollInterval,new SessionPollListener(zk,this));
+            poller.startPolling();
+        }
+
+        return zk;
+    }
+
+    /**
+     * This method ensures a ZK session is fully CONNECTED state, and not in a CONNECTING state.
+     */
+    private void ensureConnectionEstablishedBeforeProceeding() throws KeeperException.SystemErrorException {
+        if(logger.isDebugEnabled()) {
+            logger.debug("The current Zookeeper state is " + zk.getState() + ".");
+        }
+
+        if (zk.getState() == ZooKeeper.States.CONNECTING) {
+            for (int retry = 0; (retry * connectedCheckDelay) < maxConnectionWaitTime; retry++) {
+                if (zk.getState() == ZooKeeper.States.CONNECTED) {
+                    break;
+                } else {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Time waited for Zookeeper CONNECTED state is currently " + (retry * connectedCheckDelay) + " milliseconds.");
+                    }
+
+                    try {
+                        Thread.sleep(connectedCheckDelay);
+                    } catch (InterruptedException e) {
+                        logger.debug("sleep interrupted");
+                    }
+                }
+            }
+        }
+
+        if(zk.getState() != ZooKeeper.States.CONNECTED) {
+            if(logger.isDebugEnabled()) {
+                logger.error("Zookeeper failed to achieve a CONNECTED state.  The current state is " + zk.getState() + ".");
+            }
+
+            throw new KeeperException.SystemErrorException();
+        }
+    }
 
     @Override
     public synchronized void closeSession() {
-				logger.info("Closing ZkSessionManager");
+		logger.info("Closing ZkSessionManager");
         try{
             if(zk!=null){
                 try {
