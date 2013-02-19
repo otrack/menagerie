@@ -15,7 +15,8 @@
  */
 package org.menagerie;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.*;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ import java.util.concurrent.Executors;
  */
 
 public class DefaultZkSessionManager implements ZkSessionManager{
-    private static final Logger logger = Logger.getLogger(DefaultZkSessionManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(DefaultZkSessionManager.class);
     //this could potentially be a very write-heavy list, so a synchronized list will perform better
     //than a more traditional CopyOnWriteArrayList would be
     private List<ConnectionListener> listeners = Collections.synchronizedList(new ArrayList<ConnectionListener>());

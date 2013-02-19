@@ -15,7 +15,8 @@
  */
 package org.menagerie;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 
 import java.util.concurrent.TimeUnit;
@@ -26,7 +27,7 @@ import java.util.concurrent.TimeUnit;
  *         Time: 1:55:52 PM
  */
 public class ZkCommandExecutor extends BaseZkCommandExecutor implements IZkCommandExecutor {
-    private static final Logger logger = Logger.getLogger(ZkCommandExecutor.class);
+    private static final Logger logger = LoggerFactory.getLogger(ZkCommandExecutor.class);
 
     public ZkCommandExecutor(ZkSessionManager sessionManager) {
         super(sessionManager,DEFAULT_MAX_RETRIES,DEFAULT_DELAY_MILLIS,TimeUnit.MILLISECONDS);

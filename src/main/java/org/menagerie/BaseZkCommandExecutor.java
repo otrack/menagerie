@@ -1,6 +1,7 @@
 package org.menagerie;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 
 import java.util.concurrent.TimeUnit;
@@ -12,7 +13,7 @@ import java.util.concurrent.TimeUnit;
  * Time: 4:43 PM
  */
 public abstract class BaseZkCommandExecutor implements IZkCommandExecutor {
-    protected static final Logger logger = Logger.getLogger(BaseZkCommandExecutor.class);
+    protected static final Logger logger = LoggerFactory.getLogger(BaseZkCommandExecutor.class);
 
     protected static final long DEFAULT_DELAY_MILLIS = 1000;
     protected static final int DEFAULT_MAX_RETRIES = 3;
