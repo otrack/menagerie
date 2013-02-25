@@ -38,7 +38,7 @@ public class BaseZkSessionManager implements ZkSessionManager {
     }
 
     @Override
-    public void closeSession() {
+    public void shutdown() {
         try {
             zk.close();
         } catch (InterruptedException e) {

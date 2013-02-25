@@ -30,7 +30,7 @@ public class WriteLockMutualExclusivityTest {
 
 	@AfterClass
 	public static void teardownAfterClass() throws Exception {
-		sessionManager.closeSession();
+		sessionManager.shutdown();
 	}
 	
 	@Before

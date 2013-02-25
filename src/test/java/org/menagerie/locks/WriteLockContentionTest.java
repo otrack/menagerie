@@ -28,7 +28,7 @@ public class WriteLockContentionTest {
 
 	@AfterClass
 	public static void teardownAfterClass() throws Exception {
-		sessionManager.closeSession();
+		sessionManager.shutdown();
 	}
 	
 	@Before

@@ -27,7 +27,7 @@ public class S3 {
         long timeout = 5;
         String polledElement = testQueue.poll(timeout, TimeUnit.SECONDS);
         System.out.println(polledElement);
-        dzsm.closeSession();
+        dzsm.shutdown();
     }
 
 }

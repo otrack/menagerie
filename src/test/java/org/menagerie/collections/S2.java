@@ -22,7 +22,7 @@ public class S2 {
         testQueue.put(testElement);
         int reportedSize = testQueue.size();
         System.out.println(reportedSize);
-        dzsm.closeSession();
+        dzsm.shutdown();
     }
 
 }

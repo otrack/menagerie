@@ -50,7 +50,7 @@ public interface ZkSessionManager {
     /**
      * Closes this Session, and renders all future calls to {@link #getZooKeeper()} invalid.
      */
-    void closeSession();
+    void shutdown();
 
     /**
      * Add a connection listener to listen for connection events.
