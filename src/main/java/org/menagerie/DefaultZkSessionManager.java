@@ -153,6 +153,7 @@ public class DefaultZkSessionManager implements ZkSessionManager{
                     }
                 }, this);
             } catch (KeeperException.SystemErrorException e) {
+                closeQuietly();
                 zk = getNewZookeeperInstance();
             }
         }
@@ -221,6 +222,14 @@ public class DefaultZkSessionManager implements ZkSessionManager{
             }
 
             throw new KeeperException.SystemErrorException();
+        }
+    }
+
+    public void closeQuietly() {
+        try {
+            closeSession();
+        }  catch (Exception e) {
+            logger.debug("Error closing ZooKeeper session.", e);
         }
     }
 
