@@ -294,7 +294,6 @@ public class DefaultZkSessionManager implements ZkSessionManager {
                     for (ConnectionListener listener : listeners) {
                         listener.expired();
                     }
-                    zk = null;
                 } else if (state == Watcher.Event.KeeperState.SyncConnected) {
                     //tell everyone that we've reconnected to the Server, and they should make sure that their watchers
                     //are in place
