@@ -17,6 +17,7 @@ package org.menagerie.collections;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
@@ -47,12 +48,16 @@ import java.util.concurrent.locks.ReadWriteLock;
  */
 @Beta
 @ClusterSafe
-public class ZkListSet<T> implements Set<T> {
+public class ZkListSet<T> implements Set<T>{
     private final String baseNode;
     private final ZkSessionManager sessionManager;
     private final List<ACL> privileges;
     private final Serializer<T> serializer;
     private final ReadWriteLock safety;
+
+    public ZkListSet(String baseNode, ZkSessionManager sessionManager, Serializer<T> serializer){
+        this(baseNode,sessionManager, ZooDefs.Ids.OPEN_ACL_UNSAFE,serializer,new ReentrantZkReadWriteLock(baseNode,sessionManager,ZooDefs.Ids.OPEN_ACL_UNSAFE));
+    }
 
     public ZkListSet(String baseNode, ZkSessionManager sessionManager, List<ACL> privileges, Serializer<T> serializer){
         this(baseNode,sessionManager,privileges,serializer,new ReentrantZkReadWriteLock(baseNode,sessionManager,privileges));
